@@ -1,0 +1,28 @@
+{
+  "name": "sheetzi",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Collaborative web spreadsheet with a hand-written formula engine",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "test": "node test/run.js",
+    "hash-password": "node tools/hash-password.mjs",
+    "check:imports": "node tools/check-imports.mjs",
+    "check:spec": "node tools/check-spec.mjs",
+    "check:writes": "node tools/check-writes.mjs",
+    "smoke": "node tools/smoke.mjs",
+    "crash": "node tools/crash.mjs",
+    "auth": "node tools/auth.mjs",
+    "verify": "node tools/check-imports.mjs && node tools/check-spec.mjs && node tools/check-writes.mjs && node test/run.js && node tools/smoke.mjs && node tools/crash.mjs && node tools/auth.mjs && node tools/browser.mjs",
+    "browser": "node tools/browser.mjs"
+  },
+  "engines": {
+    "node": ">=20.12"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "ws": "^8.18.0"
+  }
+}

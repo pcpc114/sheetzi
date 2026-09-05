@@ -1,0 +1,4756 @@
+/* ==========================================================================
+   시트지 — collaborative spreadsheet stylesheet
+   No external resources. Every colour is a custom property defined in §1.
+   Layout contract: <body> is a flex column that never scrolls; only
+   .sz-viewport inside .sz-grid scrolls.
+
+   §1  Design tokens            §7  Toolbar + formula bar
+   §2  Reset & base             §8  Grid
+   §3  App shell layout         §9  Editor, fill handle, resize guide
+   §4  Header                   §10 Context menu
+   §5  Presence chips           §11 Peer cursors
+   §6  Buttons                  §12 Status bar
+                                §13 Toasts
+                                §14 Scrollbars & misc
+                                §15 Motion preferences
+                                §16 Sheet bar (bottom tab strip)
+                                §17 Documents menu
+                                §18 Documents menu (emitted classes)
+                                §19 Home — the document list
+                                §20 Merged cells
+                                §21 Cell formatting controls
+                                §22 Tools, batch B
+                                §23 Data features, batch C
+                                §24 Growing a sheet
+                                §25 Save indicator
+                                §26 Login page + 로그아웃 button
+   ========================================================================== */
+
+/* ── §1 Design tokens ─────────────────────────────────────────────────── */
+:root {
+  color-scheme: light dark;
+
+  /* Surfaces */
+  --sz-bg:             #ffffff;
+  --sz-surface:        #ffffff;
+  --sz-surface-2:      #f8f9fa;
+  --sz-surface-3:      #eef1f4;
+  --sz-surface-4:      #e2e6ea;
+  --sz-overlay:        #ffffff;
+
+  /* Lines */
+  --sz-line:           #e0e0e0;
+  --sz-line-strong:    #c8ced6;
+
+  /* Text */
+  --sz-text:           #1f2328;
+  --sz-text-muted:     #5f6368;
+  --sz-text-faint:     #868d95;
+  --sz-on-accent:      #ffffff;
+  --sz-on-color:       #ffffff;
+
+  /* Brand & state */
+  --sz-accent:         #1a73e8;
+  --sz-accent-hover:   #1765cc;
+  --sz-accent-soft:    rgba(26, 115, 232, .10);
+  --sz-accent-soft-2:  rgba(26, 115, 232, .20);
+  --sz-danger:         #d93025;
+  /* Tinted danger, for a message that has to sit in a box rather than just
+     colour a word: the login error (§26). Same .10 alpha as --sz-accent-soft,
+     so a red panel and a blue one weigh the same. Two rules written before
+     §26 already asked for this token; it is defined in both blocks now. */
+  --sz-danger-soft:    rgba(217, 48, 37, .10);
+  --sz-ok:             #1e8e3e;
+  --sz-warn:           #e37400;
+  /* Warm attention, for a state that is a WAIT and not a failure (§25). Kept
+     apart from --sz-danger on purpose: queued work is not an error. */
+  --sz-warn-soft:      rgba(227, 116, 0, .13);
+  --sz-warn-text:      #9a5200;
+
+  /* Grid specifics */
+  --sz-head-band:      #f8f9fa;
+  --sz-head-band-hi:   #e8eaed;
+  --sz-sel-fill:       rgba(26, 115, 232, .10);
+  --sz-sel-head:       rgba(26, 115, 232, .18);
+
+  /* Sheet tab strip (§16). The band is a touch darker than the status bar so a
+     white active tab reads as raised; dark mode inverts that relationship. */
+  --sz-tab-band:       #eef1f4;
+  --sz-tab-hover:      #e2e6ea;
+  --sz-tab-active:     #ffffff;
+
+  /* Chart palette (§23). Ten categorical series colours. Every one clears 3.8:1
+     against the surface it is drawn on, in its own theme, so a 1px line or an
+     axis label in one of them is legible and not merely a fill. The order
+     alternates warm and cool, so two series adjacent in a legend are always a
+     hue apart rather than two shades of the same thing. chart.js reads them
+     with getComputedStyle, which is why they are tokens and not literals buried
+     in the SVG — a palette in the stylesheet is a palette that follows the
+     theme. */
+  --sz-chart-1:        #1a73e8;
+  --sz-chart-2:        #cf5f0a;
+  --sz-chart-3:        #0b7f97;
+  --sz-chart-4:        #c5221f;
+  --sz-chart-5:        #0f8c62;
+  --sz-chart-6:        #8a5a2b;
+  --sz-chart-7:        #7b3fbf;
+  --sz-chart-8:        #6b8c05;
+  --sz-chart-9:        #5c6b7a;
+  --sz-chart-10:       #c81d7c;
+
+  /* Elevation */
+  --sz-shadow-1:       0 1px 2px rgba(60, 64, 67, .16), 0 1px 3px rgba(60, 64, 67, .09);
+  --sz-shadow-2:       0 6px 24px rgba(60, 64, 67, .20), 0 1px 3px rgba(60, 64, 67, .14);
+  --sz-shadow-inset:   rgba(60, 64, 67, .10);
+
+  /* Toast */
+  --sz-toast-bg:       #24272c;
+  --sz-toast-fg:       #f2f4f6;
+
+  /* Scrollbar */
+  --sz-scroll-thumb:   #c3c8ce;
+  --sz-scroll-thumb-h: #a7aeb6;
+  --sz-scroll-track:   transparent;
+
+  /* Metrics */
+  --sz-header-h:       52px;
+  --sz-toolbar-h:      42px;
+  --sz-fbar-h:         30px;
+  --sz-statusbar-h:    26px;
+  --sz-sheetbar-h:     34px;
+  --sz-grow-h:         32px;
+  --sz-tab-h:          26px;
+  --sz-row-h:          26px;
+  --sz-rowhead-w:      46px;
+  --sz-radius:         10px;
+  --sz-radius-sm:      6px;
+  --sz-focus-w:        2px;
+
+  /* Typography */
+  --sz-font: 'Pretendard', 'Apple SD Gothic Neo', 'Malgun Gothic', 'Segoe UI', system-ui, sans-serif;
+  --sz-font-mono: ui-monospace, 'Cascadia Mono', 'Consolas', 'D2Coding', 'Malgun Gothic', monospace;
+  --sz-fs:             13px;
+  --sz-fs-sm:          12px;
+  --sz-fs-xs:          11px;
+}
+
+/* Dark theme redefines tokens only — no structural rules below this point. */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --sz-bg:             #16181c;
+    --sz-surface:        #1c1f24;
+    --sz-surface-2:      #22262c;
+    --sz-surface-3:      #2a2f36;
+    --sz-surface-4:      #343a43;
+    --sz-overlay:        #24282e;
+
+    --sz-line:           #33383f;
+    --sz-line-strong:    #4a515b;
+
+    --sz-text:           #e5e8ec;
+    --sz-text-muted:     #a4abb5;
+    --sz-text-faint:     #7d858f;
+    --sz-on-accent:      #0b1220;
+    --sz-on-color:       #ffffff;
+
+    --sz-accent:         #8ab4f8;
+    --sz-accent-hover:   #a9c8fb;
+    --sz-accent-soft:    rgba(138, 180, 248, .14);
+    --sz-accent-soft-2:  rgba(138, 180, 248, .26);
+    --sz-danger:         #f28b82;
+    --sz-danger-soft:    rgba(242, 139, 130, .16);
+    --sz-ok:             #81c995;
+    --sz-warn:           #fdd663;
+    --sz-warn-soft:      rgba(253, 214, 99, .16);
+    --sz-warn-text:      #fdd663;
+
+    --sz-head-band:      #22262c;
+    --sz-head-band-hi:   #2f353d;
+    --sz-sel-fill:       rgba(138, 180, 248, .14);
+    --sz-sel-head:       rgba(138, 180, 248, .24);
+
+    --sz-tab-band:       #191c21;
+    --sz-tab-hover:      #262b32;
+    --sz-tab-active:     #2c313a;
+
+    --sz-chart-1:        #8ab4f8;
+    --sz-chart-2:        #fbab5e;
+    --sz-chart-3:        #57ccdc;
+    --sz-chart-4:        #f28b82;
+    --sz-chart-5:        #6bd39a;
+    --sz-chart-6:        #c6a48c;
+    --sz-chart-7:        #c3a0fb;
+    --sz-chart-8:        #c3d94a;
+    --sz-chart-9:        #a8b6c4;
+    --sz-chart-10:       #f791d0;
+
+    --sz-shadow-1:       0 1px 2px rgba(0, 0, 0, .50), 0 1px 3px rgba(0, 0, 0, .34);
+    --sz-shadow-2:       0 8px 28px rgba(0, 0, 0, .60), 0 1px 3px rgba(0, 0, 0, .40);
+    --sz-shadow-inset:   rgba(0, 0, 0, .40);
+
+    --sz-toast-bg:       #e8eaed;
+    --sz-toast-fg:       #16181c;
+
+    --sz-scroll-thumb:   #454b54;
+    --sz-scroll-thumb-h: #59616c;
+  }
+}
+
+/* ── §2 Reset & base ──────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; }
+
+html { height: 100%; -webkit-text-size-adjust: 100%; }
+
+body {
+  height: 100%;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;               /* the page itself never scrolls */
+  overscroll-behavior: none;
+  font-family: var(--sz-font);
+  font-size: var(--sz-fs);
+  line-height: 1.45;
+  color: var(--sz-text);
+  background: var(--sz-bg);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+
+:focus { outline: none; }
+:focus-visible {
+  outline: var(--sz-focus-w) solid var(--sz-accent);
+  outline-offset: 2px;
+}
+
+::selection { background: var(--sz-accent-soft-2); }
+
+hr { border: 0; border-top: 1px solid var(--sz-line); margin: 0; }
+
+.sz-noscript {
+  margin: 0;
+  padding: 12px 18px;
+  background: var(--sz-warn);
+  color: var(--sz-on-accent);
+  font-size: var(--sz-fs);
+  text-align: center;
+}
+.sz-noscript strong { margin-right: 6px; }
+
+/* ── §3 App shell layout ──────────────────────────────────────────────── */
+.sz-header,
+#sz-toolbar-root,
+.sz-statusbar { flex: 0 0 auto; }
+
+#sz-grid-root,
+.sz-grid {
+  flex: 1 1 auto;
+  min-height: 0;                  /* lets the grid, not the page, own the scroll */
+}
+
+/* ── §4 Header ────────────────────────────────────────────────────────── */
+.sz-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: var(--sz-header-h);
+  padding: 0 14px;
+  background: var(--sz-surface);
+  border-bottom: 1px solid var(--sz-line);
+}
+
+.sz-logo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+  user-select: none;
+}
+.sz-logo-mark { display: block; border-radius: 7px; }
+.sz-logo-bg { fill: var(--sz-accent); }
+.sz-logo-fg { fill: var(--sz-on-accent); }
+.sz-logo-fg-2 { opacity: .72; }
+.sz-logo-text {
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -.01em;
+  color: var(--sz-text);
+}
+
+.sz-docname {
+  flex: 0 1 300px;
+  min-width: 120px;
+  height: 32px;
+  padding: 0 9px;
+  border: 1px solid transparent;
+  border-radius: var(--sz-radius-sm);
+  background: transparent;
+  color: var(--sz-text);
+  font-size: 14px;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  transition: background-color .12s ease, border-color .12s ease;
+}
+.sz-docname::placeholder { color: var(--sz-text-faint); font-weight: 400; }
+.sz-docname:hover { background: var(--sz-surface-2); }
+.sz-docname:focus { background: var(--sz-surface); border-color: var(--sz-accent); }
+.sz-docname:focus-visible { outline-offset: 0; }
+
+/* Everything after the doc name is pushed to the right edge. */
+.sz-peers { margin-left: auto; }
+
+.sz-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+  height: 26px;
+  padding: 0 10px 0 9px;
+  border-radius: 999px;
+  background: var(--sz-surface-2);
+  color: var(--sz-text-muted);
+  font-size: var(--sz-fs-sm);
+  white-space: nowrap;
+  user-select: none;
+}
+.sz-status::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: var(--sz-warn);
+}
+/* Accept data-state, bare class or is-/sz-status- prefixed class. */
+.sz-status[data-state='online']::before,
+.sz-status.online::before,
+.sz-status.is-online::before,
+.sz-status.sz-status-online::before { background: var(--sz-ok); }
+
+.sz-status[data-state='offline']::before,
+.sz-status.offline::before,
+.sz-status.is-offline::before,
+.sz-status.sz-status-offline::before { background: var(--sz-danger); }
+
+.sz-status[data-state='connecting']::before,
+.sz-status.connecting::before,
+.sz-status.is-connecting::before,
+.sz-status.sz-status-connecting::before {
+  background: var(--sz-warn);
+  animation: sz-pulse 1.1s ease-in-out infinite;
+}
+@keyframes sz-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .32; } }
+
+.sz-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
+/* ── §5 Presence chips ────────────────────────────────────────────────── */
+.sz-peers {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  padding-left: 6px;
+}
+.sz-peers > * + * { margin-left: -6px; }
+
+.sz-peer {
+  display: inline-grid;
+  place-content: center;
+  width: 27px;
+  height: 27px;
+  border-radius: 50%;
+  background: var(--sz-surface-4);
+  color: var(--sz-on-color);
+  box-shadow: 0 0 0 2px var(--sz-surface);
+  font-size: var(--sz-fs-xs);
+  font-weight: 700;
+  line-height: 1;
+  text-transform: uppercase;
+  overflow: hidden;
+  white-space: nowrap;
+  user-select: none;
+  cursor: default;
+  transition: transform .12s ease;
+}
+.sz-peer:hover { transform: translateY(-1px); z-index: 1; }
+.sz-peer-you { box-shadow: 0 0 0 2px var(--sz-surface), 0 0 0 4px var(--sz-accent); }
+.sz-peer-more {
+  background: var(--sz-surface-3);
+  color: var(--sz-text-muted);
+  font-weight: 600;
+}
+
+/* ── §6 Buttons ───────────────────────────────────────────────────────── */
+.sz-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 13px;
+  border: 1px solid var(--sz-line-strong);
+  border-radius: var(--sz-radius-sm);
+  background: var(--sz-surface);
+  color: var(--sz-text);
+  font-size: var(--sz-fs);
+  font-weight: 500;
+  white-space: nowrap;
+  transition: background-color .12s ease, border-color .12s ease;
+}
+.sz-btn:hover { background: var(--sz-surface-2); }
+.sz-btn:active { background: var(--sz-surface-3); }
+.sz-btn[disabled] { opacity: .45; pointer-events: none; }
+
+.sz-btn-primary {
+  border-color: transparent;
+  background: var(--sz-accent);
+  color: var(--sz-on-accent);
+}
+.sz-btn-primary:hover { background: var(--sz-accent-hover); }
+.sz-btn-primary:active { background: var(--sz-accent-hover); }
+
+/* ── §7 Toolbar + formula bar ─────────────────────────────────────────── */
+.sz-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: var(--sz-toolbar-h);
+  padding: 0 10px;
+  background: var(--sz-surface-2);
+  border-bottom: 1px solid var(--sz-line);
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  white-space: nowrap;
+}
+.sz-toolbar::-webkit-scrollbar { height: 0; }
+
+.sz-tb-group {
+  position: relative;             /* anchor for .sz-swatches popups */
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: 0 0 auto;
+}
+
+.sz-tb-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-width: 30px;
+  height: 30px;
+  padding: 0 7px;
+  border: 0;
+  border-radius: var(--sz-radius-sm);
+  background: transparent;
+  color: var(--sz-text-muted);
+  font-size: var(--sz-fs);
+  font-weight: 600;
+  line-height: 1;
+  transition: background-color .1s ease, color .1s ease;
+}
+.sz-tb-btn:hover { background: var(--sz-surface-3); color: var(--sz-text); }
+.sz-tb-btn:active { background: var(--sz-surface-4); }
+.sz-tb-btn[disabled] { opacity: .38; pointer-events: none; }
+.sz-tb-btn svg { display: block; width: 16px; height: 16px; fill: currentColor; }
+
+.sz-tb-btn-active {
+  background: var(--sz-accent-soft);
+  color: var(--sz-accent);
+}
+.sz-tb-btn-active:hover { background: var(--sz-accent-soft-2); color: var(--sz-accent); }
+
+.sz-tb-sep {
+  flex: 0 0 auto;
+  width: 1px;
+  height: 20px;
+  margin: 0 6px;
+  background: var(--sz-line-strong);
+}
+
+.sz-toolbar select {
+  height: 28px;
+  padding: 0 6px;
+  border: 1px solid var(--sz-line-strong);
+  border-radius: var(--sz-radius-sm);
+  background: var(--sz-surface);
+  color: var(--sz-text);
+  font-size: var(--sz-fs-sm);
+}
+
+/* Colour palette. Rendered as a panel; if the host positions it as a popup it
+   sets left/top (and position) inline — the panel chrome works either way. */
+.sz-swatches {
+  z-index: 60;
+  display: grid;
+  grid-template-columns: repeat(10, 18px);
+  gap: 5px;
+  padding: 9px;
+  background: var(--sz-overlay);
+  border: 1px solid var(--sz-line);
+  border-radius: var(--sz-radius);
+  box-shadow: var(--sz-shadow-2);
+}
+.sz-swatches[hidden] { display: none; }
+
+.sz-swatch {
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 1px solid var(--sz-shadow-inset);
+  border-radius: 4px;
+  background: var(--sz-surface-3);
+  transition: transform .1s ease, box-shadow .1s ease;
+}
+.sz-swatch:hover { transform: scale(1.14); box-shadow: var(--sz-shadow-1); }
+.sz-swatch[aria-pressed='true'],
+.sz-swatch.sz-tb-btn-active { box-shadow: 0 0 0 2px var(--sz-accent); }
+
+/* Formula bar */
+.sz-fbar {
+  display: flex;
+  align-items: stretch;
+  height: var(--sz-fbar-h);
+  background: var(--sz-surface);
+  border-bottom: 1px solid var(--sz-line);
+}
+
+.sz-namebox {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 112px;
+  height: 100%;
+  padding: 0 8px;
+  border: 0;
+  border-right: 1px solid var(--sz-line);
+  background: transparent;
+  color: var(--sz-text);
+  font-size: var(--sz-fs-sm);
+  font-weight: 600;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sz-namebox:focus-visible { outline-offset: -2px; }
+
+.sz-finput {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 100%;
+  padding: 0 12px;
+  border: 0;
+  background: transparent;
+  color: var(--sz-text);
+  font-family: var(--sz-font-mono);
+  font-size: var(--sz-fs);
+  font-variant-numeric: tabular-nums;
+}
+.sz-finput::placeholder { color: var(--sz-text-faint); }
+.sz-finput:focus-visible { outline-offset: -2px; }
+
+/* ── §8 Grid ──────────────────────────────────────────────────────────── */
+.sz-grid {
+  position: relative;
+  overflow: hidden;
+  background: var(--sz-bg);
+  user-select: none;
+  contain: layout paint;
+}
+
+.sz-viewport {
+  position: absolute;
+  inset: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  will-change: transform;
+}
+.sz-viewport:focus-visible { outline: var(--sz-focus-w) solid var(--sz-accent); outline-offset: -2px; }
+
+/* Sized by JS to the full virtual extent; cells are absolutely placed in it. */
+.sz-spacer { position: relative; }
+
+/* Cells. Grid display keeps text vertically centred while still honouring an
+   inline text-align set by the renderer. Borders are right+bottom insets only,
+   so adjacent cells never double up. */
+.sz-cell,
+.sz-colhead,
+.sz-rowhead,
+.sz-corner {
+  position: absolute;
+  display: grid;
+  align-content: center;
+  overflow: hidden;
+  white-space: pre;
+  padding: 0 5px;
+  font-size: var(--sz-fs);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.25;
+}
+
+.sz-cell {
+  z-index: 1;
+  background: var(--sz-surface);
+  color: var(--sz-text);
+  box-shadow:
+    inset -1px 0 0 var(--sz-line),
+    inset  0 -1px 0 var(--sz-line);
+}
+
+/* Translucent selection wash painted *under* the grid lines. */
+.sz-cell-selected {
+  box-shadow:
+    inset -1px 0 0 var(--sz-line),
+    inset  0 -1px 0 var(--sz-line),
+    inset  0 0 0 9999px var(--sz-sel-fill);
+}
+
+/* 2px outline drawn inside the box: never shifts layout. */
+.sz-cell-active {
+  z-index: 3;
+  outline: 2px solid var(--sz-accent);
+  outline-offset: -1px;
+  box-shadow:
+    inset -1px 0 0 var(--sz-line),
+    inset  0 -1px 0 var(--sz-line);
+}
+
+/* Headers */
+.sz-colhead,
+.sz-rowhead,
+.sz-corner {
+  justify-content: center;
+  text-align: center;
+  background: var(--sz-head-band);
+  color: var(--sz-text-muted);
+  font-size: var(--sz-fs-sm);
+  font-weight: 500;
+  cursor: default;
+}
+
+.sz-colhead {
+  z-index: 9;
+  box-shadow:
+    inset -1px 0 0 var(--sz-line),
+    inset  0 -1px 0 var(--sz-line-strong);
+}
+.sz-rowhead {
+  z-index: 8;
+  box-shadow:
+    inset -1px 0 0 var(--sz-line-strong),
+    inset  0 -1px 0 var(--sz-line);
+}
+.sz-corner {
+  z-index: 10;
+  box-shadow:
+    inset -1px 0 0 var(--sz-line-strong),
+    inset  0 -1px 0 var(--sz-line-strong);
+}
+
+.sz-colhead:hover,
+.sz-rowhead:hover,
+.sz-corner:hover { background: var(--sz-head-band-hi); }
+
+/* Header highlight when its row/col intersects the selection. grid.js applies
+   .sz-colhead-active / .sz-rowhead-active and mirrors it to aria-selected; the cell
+   state classes are accepted too so either convention renders. */
+.sz-colhead-active,
+.sz-rowhead-active,
+.sz-colhead.sz-cell-selected,
+.sz-rowhead.sz-cell-selected,
+.sz-colhead[aria-selected='true'],
+.sz-rowhead[aria-selected='true'] {
+  background: var(--sz-sel-head);
+  color: var(--sz-text);
+  font-weight: 600;
+}
+.sz-colhead.sz-cell-active,
+.sz-rowhead.sz-cell-active {
+  outline: none;
+  background: var(--sz-accent);
+  color: var(--sz-on-accent);
+  font-weight: 600;
+}
+
+/* Resize affordance along the trailing edge of a header. */
+.sz-colhead { cursor: cell; }
+.sz-rowhead { cursor: cell; }
+.sz-colhead.sz-resizing,
+.sz-rowhead.sz-resizing { cursor: col-resize; }
+
+/* Frozen panes: painted above normal cells and always opaque. Add
+   .sz-frozen-edge to the last frozen row/column for the divider line. */
+.sz-frozen { z-index: 6; background: var(--sz-surface); }
+.sz-colhead.sz-frozen,
+.sz-rowhead.sz-frozen,
+.sz-corner.sz-frozen { z-index: 11; background: var(--sz-head-band); }
+.sz-frozen-edge {
+  box-shadow:
+    inset -1px 0 0 var(--sz-line-strong),
+    inset  0 -1px 0 var(--sz-line-strong),
+    2px 0 4px -2px var(--sz-shadow-inset),
+    0 2px 4px -2px var(--sz-shadow-inset);
+}
+
+/* ── §9 Editor, fill handle, resize guide ─────────────────────────────── */
+.sz-editor {
+  position: absolute;
+  z-index: 20;
+  margin: 0;
+  padding: 0 4px;
+  border: 2px solid var(--sz-accent);
+  border-radius: 2px;
+  background: var(--sz-surface);
+  color: var(--sz-text);
+  font-family: var(--sz-font);
+  font-size: var(--sz-fs);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.25;
+  box-shadow: var(--sz-shadow-1);
+  resize: none;
+  overflow: hidden;
+  white-space: pre;
+}
+.sz-editor:focus,
+.sz-editor:focus-visible { outline: none; }
+
+.sz-fill {
+  position: absolute;
+  z-index: 16;
+  width: 8px;
+  height: 8px;
+  border: 1px solid var(--sz-surface);
+  border-radius: 2px;
+  background: var(--sz-accent);
+  cursor: crosshair;
+}
+
+/* Drawn while dragging a column/row edge. min-* gives the 1-axis line its
+   thickness when the host only sets the long axis. */
+.sz-resize-guide {
+  position: absolute;
+  z-index: 30;
+  min-width: 2px;
+  min-height: 2px;
+  background: var(--sz-accent);
+  opacity: .85;
+  pointer-events: none;
+}
+
+/* ── §10 Context menu ─────────────────────────────────────────────────── */
+.sz-menu {
+  position: absolute;
+  z-index: 200;
+  min-width: 208px;
+  max-height: 70vh;
+  padding: 6px;
+  background: var(--sz-overlay);
+  border: 1px solid var(--sz-line);
+  border-radius: var(--sz-radius);
+  box-shadow: var(--sz-shadow-2);
+  overflow-y: auto;
+  user-select: none;
+}
+.sz-menu[hidden] { display: none; }
+
+.sz-menu-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  width: 100%;
+  padding: 7px 10px;
+  border: 0;
+  border-radius: var(--sz-radius-sm);
+  background: transparent;
+  color: var(--sz-text);
+  font-size: var(--sz-fs);
+  text-align: left;
+  white-space: nowrap;
+}
+.sz-menu-item:hover { background: var(--sz-surface-3); }
+.sz-menu-item:focus-visible { outline-offset: -2px; }
+.sz-menu-item[disabled],
+.sz-menu-item.sz-disabled { color: var(--sz-text-faint); pointer-events: none; }
+.sz-menu-item.sz-danger { color: var(--sz-danger); }
+.sz-menu-item + hr,
+.sz-menu-item.sz-menu-sep { margin: 5px 4px; }
+.sz-menu-item kbd {
+  color: var(--sz-text-faint);
+  font-family: var(--sz-font-mono);
+  font-size: var(--sz-fs-xs);
+}
+
+/* ── §11 Peer cursors ─────────────────────────────────────────────────── */
+/* The host sets `color` (or borderColor) inline per peer. */
+.sz-peer-cursor {
+  position: absolute;
+  z-index: 12;
+  border: 2px solid currentColor;
+  border-radius: 2px;
+  pointer-events: none;
+}
+
+.sz-peer-label {
+  position: absolute;
+  top: -17px;
+  left: -2px;
+  max-width: 160px;
+  padding: 1px 6px;
+  border-radius: 4px 4px 4px 0;
+  background: currentColor;
+  color: var(--sz-on-color);
+  -webkit-text-fill-color: var(--sz-on-color);
+  font-size: var(--sz-fs-xs);
+  font-weight: 600;
+  line-height: 15px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
+}
+
+/* ── §12 Status bar ───────────────────────────────────────────────────── */
+.sz-statusbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  height: var(--sz-statusbar-h);
+  padding: 0 14px;
+  background: var(--sz-surface-2);
+  border-top: 1px solid var(--sz-line);
+  color: var(--sz-text-muted);
+  font-size: var(--sz-fs-sm);
+  white-space: nowrap;
+  overflow: hidden;
+  user-select: none;
+}
+.sz-selstats {
+  font-variant-numeric: tabular-nums;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sz-hint { color: var(--sz-text-faint); overflow: hidden; text-overflow: ellipsis; }
+
+/* ── §13 Toasts ───────────────────────────────────────────────────────── */
+.sz-toasts {
+  position: fixed;
+  right: 16px;
+  /* Clears the whole bottom chrome: status bar, sheet tabs AND the grow bar. A fixed
+     offset that predates a new bar quietly parks the toasts on top of it. */
+  bottom: calc(var(--sz-statusbar-h) + var(--sz-sheetbar-h) + var(--sz-grow-h) + 14px);
+  z-index: 400;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.sz-toast {
+  max-width: min(380px, 80vw);
+  padding: 9px 14px;
+  border-radius: var(--sz-radius);
+  background: var(--sz-toast-bg);
+  color: var(--sz-toast-fg);
+  font-size: var(--sz-fs);
+  box-shadow: var(--sz-shadow-2);
+  pointer-events: auto;
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity .18s ease, transform .18s cubic-bezier(.2, .8, .3, 1);
+}
+/* Entrance: animates from the starting style on insertion, with no JS help. */
+@starting-style {
+  .sz-toast { opacity: 0; transform: translateY(10px); }
+}
+.sz-toast.sz-toast-out,
+.sz-toast.is-hiding { opacity: 0; transform: translateY(6px); }
+
+.sz-toast-error { background: var(--sz-danger); color: var(--sz-on-color); }
+.sz-toast-ok { background: var(--sz-ok); color: var(--sz-on-color); }
+
+/* ── §14 Scrollbars & misc ────────────────────────────────────────────── */
+.sz-viewport,
+.sz-menu { scrollbar-width: thin; scrollbar-color: var(--sz-scroll-thumb) var(--sz-scroll-track); }
+
+.sz-viewport::-webkit-scrollbar,
+.sz-menu::-webkit-scrollbar { width: 12px; height: 12px; }
+.sz-viewport::-webkit-scrollbar-track,
+.sz-menu::-webkit-scrollbar-track { background: var(--sz-scroll-track); }
+.sz-viewport::-webkit-scrollbar-thumb,
+.sz-menu::-webkit-scrollbar-thumb {
+  background: var(--sz-scroll-thumb);
+  border: 3px solid var(--sz-bg);
+  border-radius: 999px;
+}
+.sz-viewport::-webkit-scrollbar-thumb:hover,
+.sz-menu::-webkit-scrollbar-thumb:hover { background: var(--sz-scroll-thumb-h); }
+.sz-viewport::-webkit-scrollbar-corner { background: var(--sz-bg); }
+
+[hidden] { display: none !important; }
+
+@media (max-width: 720px) {
+  .sz-logo-text { display: none; }
+  .sz-hint { display: none; }
+  .sz-docname { flex-basis: 160px; }
+}
+
+/* ── §15 Motion preferences ───────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .001ms !important;
+    scroll-behavior: auto !important;
+  }
+  @starting-style {
+    .sz-toast { opacity: 1; transform: none; }
+  }
+}
+
+/* ── §16 Sheet bar (bottom tab strip) ─────────────────────────────────── */
+/* Sits between the grid and the status bar in the body flex column. It is a
+   fixed-height, non-shrinking row; the grid above keeps `flex:1 1 auto` +
+   `min-height:0` (§3) so it yields exactly this much space instead of pushing
+   the page into a scroll. Nothing here scrolls the page: only .sz-viewport and
+   .sz-sheet-tabs scroll. */
+#sz-sheetbar-root,
+.sz-sheetbar { flex: 0 0 auto; }
+
+.sz-sheetbar {
+  position: relative;             /* anchor for .sz-sheet-menu popups */
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: var(--sz-sheetbar-h);
+  padding: 0 8px 0 6px;
+  background: var(--sz-tab-band);
+  border-top: 1px solid var(--sz-line);
+  color: var(--sz-text-muted);
+  user-select: none;
+}
+
+/* The add button on the far left. */
+.sz-sheet-add {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: var(--sz-tab-h);
+  height: var(--sz-tab-h);
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--sz-text-muted);
+  font-size: 17px;
+  font-weight: 500;
+  line-height: 1;
+  transition: background-color .12s ease, color .12s ease;
+}
+.sz-sheet-add:hover { background: var(--sz-tab-hover); color: var(--sz-text); }
+.sz-sheet-add:active { background: var(--sz-surface-4); }
+.sz-sheet-add[disabled] { opacity: .4; pointer-events: none; }
+.sz-sheet-add svg { display: block; width: 16px; height: 16px; fill: currentColor; }
+.sz-sheet-add:focus-visible { outline-offset: -2px; }
+
+/* Horizontal strip. Only this element scrolls sideways; it never widens the
+   sheet bar, so the page cannot overflow no matter how many sheets exist. */
+.sz-sheet-tabs {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 100%;
+  padding: 0 2px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  scroll-behavior: smooth;        /* scrollIntoView on the active tab */
+  scroll-padding-inline: 10px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--sz-scroll-thumb) var(--sz-scroll-track);
+}
+.sz-sheet-tabs::-webkit-scrollbar { height: 7px; }
+.sz-sheet-tabs::-webkit-scrollbar-track { background: var(--sz-scroll-track); }
+.sz-sheet-tabs::-webkit-scrollbar-thumb {
+  background: var(--sz-scroll-thumb);
+  border-radius: 999px;
+}
+.sz-sheet-tabs::-webkit-scrollbar-thumb:hover { background: var(--sz-scroll-thumb-h); }
+
+/* A tab. Inactive tabs are flat on the band; the active one is raised. */
+.sz-sheet-tab {
+  position: relative;             /* anchor for .sz-sheet-tab-color */
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+  max-width: 220px;
+  height: var(--sz-tab-h);
+  padding: 0 12px;
+  border: 0;
+  border-radius: var(--sz-radius-sm);
+  background: transparent;
+  color: var(--sz-text-muted);
+  font-family: var(--sz-font);
+  font-size: var(--sz-fs-sm);
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  transition: background-color .12s ease, color .12s ease,
+              box-shadow .12s ease, transform .12s ease;
+}
+/* Truncate a long sheet name without squashing the dots or caret beside it. */
+.sz-sheet-tab > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.sz-sheet-tab > .sz-sheet-tab-color,
+.sz-sheet-tab > .sz-sheet-peer { overflow: visible; }
+
+.sz-sheet-tab:hover { background: var(--sz-tab-hover); color: var(--sz-text); }
+.sz-sheet-tab:focus-visible { outline-offset: -2px; }
+.sz-sheet-tab[disabled] { opacity: .45; pointer-events: none; }
+
+.sz-sheet-tab-active,
+.sz-sheet-tab[aria-selected='true'] {
+  background: var(--sz-tab-active);
+  color: var(--sz-text);
+  font-weight: 600;
+  box-shadow: var(--sz-shadow-1);
+  transform: translateY(-1px);
+}
+.sz-sheet-tab-active:hover,
+.sz-sheet-tab[aria-selected='true']:hover {
+  background: var(--sz-tab-active);
+  color: var(--sz-text);
+}
+
+/* Tab colour: a 3px underline pinned to the bottom edge of the tab. The host
+   may set it inline as `background`, as `--sz-sheet-color`, or as `color`. */
+.sz-sheet-tab-color {
+  position: absolute;
+  right: 5px;
+  bottom: 0;
+  left: 5px;
+  height: 3px;
+  border-radius: 2px 2px 0 0;
+  background: var(--sz-sheet-color, currentColor);
+  pointer-events: none;
+}
+
+/* Caret that opens the per-tab menu. */
+.sz-sheet-caret {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  margin-right: -5px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--sz-text-muted);
+  font-size: 10px;
+  line-height: 1;
+  transition: background-color .1s ease, color .1s ease;
+}
+.sz-sheet-caret:hover { background: var(--sz-surface-4); color: var(--sz-text); }
+.sz-sheet-caret svg { display: block; width: 12px; height: 12px; fill: currentColor; }
+.sz-sheet-caret:focus-visible { outline-offset: -1px; }
+
+/* Inline rename field overlaid on the tab (never window.prompt). */
+.sz-sheet-rename {
+  position: relative;
+  z-index: 2;
+  min-width: 64px;
+  max-width: 190px;
+  height: 20px;
+  padding: 0 5px;
+  border: 1px solid var(--sz-accent);
+  border-radius: 4px;
+  background: var(--sz-surface);
+  color: var(--sz-text);
+  font-family: var(--sz-font);
+  font-size: var(--sz-fs-sm);
+  font-weight: 600;
+  line-height: 18px;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.sz-sheet-rename:focus-visible { outline-offset: 0; }
+
+/* Drop indicator shown while a tab is dragged. Normally its own thin element;
+   the .sz-sheet-tab.sz-sheet-drop form (class put on the target tab) is
+   supported too, so either rendering strategy looks right. */
+.sz-sheet-drop:not(.sz-sheet-tab) {
+  flex: 0 0 auto;
+  align-self: center;
+  width: 2px;
+  min-width: 2px;
+  height: calc(var(--sz-tab-h) - 2px);
+  border-radius: 1px;
+  background: var(--sz-accent);
+  pointer-events: none;
+}
+.sz-sheet-tab.sz-sheet-drop { box-shadow: inset 2px 0 0 var(--sz-accent); }
+
+/* Peer presence dots stacked on a tab. The host sets the peer colour inline
+   (background or color); the ring matches whatever the tab sits on. */
+.sz-sheet-peer {
+  display: inline-block;
+  flex: 0 0 auto;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 0 1.5px var(--sz-tab-band);
+}
+.sz-sheet-peer + .sz-sheet-peer { margin-left: -3px; }
+.sz-sheet-tab-active .sz-sheet-peer,
+.sz-sheet-tab[aria-selected='true'] .sz-sheet-peer { box-shadow: 0 0 0 1.5px var(--sz-tab-active); }
+
+/* Per-tab menu: 이름 바꾸기 / 복사본 만들기 / 색상 변경 / 삭제. */
+.sz-sheet-menu {
+  position: absolute;
+  z-index: 240;
+  min-width: 176px;
+  max-height: min(60vh, 320px);
+  padding: 6px;
+  background: var(--sz-overlay);
+  border: 1px solid var(--sz-line);
+  border-radius: var(--sz-radius);
+  box-shadow: var(--sz-shadow-2);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--sz-scroll-thumb) var(--sz-scroll-track);
+  user-select: none;
+}
+.sz-sheet-menu[hidden] { display: none; }
+.sz-sheet-menu::-webkit-scrollbar { width: 10px; }
+.sz-sheet-menu::-webkit-scrollbar-thumb {
+  background: var(--sz-scroll-thumb);
+  border: 3px solid var(--sz-overlay);
+  border-radius: 999px;
+}
+
+.sz-sheet-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 7px 10px;
+  border: 0;
+  border-radius: var(--sz-radius-sm);
+  background: transparent;
+  color: var(--sz-text);
+  font-family: var(--sz-font);
+  font-size: var(--sz-fs);
+  text-align: left;
+  white-space: nowrap;
+}
+.sz-sheet-menu-item:hover { background: var(--sz-surface-3); }
+.sz-sheet-menu-item:focus-visible { outline-offset: -2px; }
+.sz-sheet-menu-item[disabled],
+.sz-sheet-menu-item[aria-disabled='true'],
+.sz-sheet-menu-item.sz-disabled { color: var(--sz-text-faint); pointer-events: none; }
+.sz-sheet-menu-item.sz-danger { color: var(--sz-danger); }
+.sz-sheet-menu-item + hr { margin: 5px 4px; }
+
+@media (max-width: 720px) {
+  .sz-sheet-tab { max-width: 150px; padding: 0 9px; }
+}
+
+/* ── §17 Documents menu ───────────────────────────────────────────────── */
+/* The 새 문서 / 내 문서 buttons live in the header; the list is a floating card
+   anchored to that wrapper, capped so it can never run off a small window. */
+.sz-docs {
+  position: relative;             /* containing block for the panel */
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+/* Fallback containing block: if the module mounts its panel into the header
+   action group rather than inside .sz-docs, the card still anchors under the
+   buttons instead of escaping to the initial containing block. */
+.sz-actions { position: relative; }
+
+.sz-docs-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 320;
+  width: 340px;
+  max-width: calc(100vw - 24px);
+  max-height: min(60vh, calc(100vh - var(--sz-header-h) - 28px));
+  padding: 6px;
+  background: var(--sz-overlay);
+  border: 1px solid var(--sz-line);
+  border-radius: var(--sz-radius);
+  box-shadow: var(--sz-shadow-2);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--sz-scroll-thumb) var(--sz-scroll-track);
+}
+.sz-docs-panel[hidden] { display: none; }
+.sz-docs-panel::-webkit-scrollbar { width: 10px; }
+.sz-docs-panel::-webkit-scrollbar-track { background: var(--sz-scroll-track); }
+.sz-docs-panel::-webkit-scrollbar-thumb {
+  background: var(--sz-scroll-thumb);
+  border: 3px solid var(--sz-overlay);
+  border-radius: 999px;
+}
+.sz-docs-panel::-webkit-scrollbar-thumb:hover { background: var(--sz-scroll-thumb-h); }
+
+/* A heading, if the panel renders one. */
+.sz-docs-panel > header,
+.sz-docs-panel > h2,
+.sz-docs-panel > h3 {
+  margin: 2px 4px 6px;
+  color: var(--sz-text-muted);
+  font-size: var(--sz-fs-xs);
+  font-weight: 700;
+  letter-spacing: .04em;
+}
+/* Dimmed while a request is in flight (setState({busy:true})). */
+.sz-docs-panel[data-busy='true'],
+.sz-docs-panel.sz-busy { opacity: .55; pointer-events: none; }
+
+.sz-docs-item {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  width: 100%;
+  padding: 7px 10px;
+  border: 0;
+  border-radius: var(--sz-radius-sm);
+  background: transparent;
+  color: var(--sz-text);
+  font-family: var(--sz-font);
+  font-size: var(--sz-fs);
+  text-align: left;
+  cursor: pointer;
+  transition: background-color .1s ease;
+}
+.sz-docs-item:hover { background: var(--sz-surface-3); }
+.sz-docs-item:focus-visible { outline-offset: -2px; }
+.sz-docs-item + .sz-docs-item { margin-top: 1px; }
+
+.sz-docs-item-current {
+  background: var(--sz-accent-soft);
+  box-shadow: inset 3px 0 0 var(--sz-accent);
+  font-weight: 600;
+}
+.sz-docs-item-current:hover { background: var(--sz-accent-soft-2); }
+
+.sz-docs-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+/* The same slot turned into an inline rename field. */
+input.sz-docs-name,
+.sz-docs-name[contenteditable='true'] {
+  height: 24px;
+  padding: 0 6px;
+  border: 1px solid var(--sz-accent);
+  border-radius: 4px;
+  background: var(--sz-surface);
+  color: var(--sz-text);
+  font: inherit;
+}
+input.sz-docs-name:focus-visible,
+.sz-docs-name[contenteditable='true']:focus-visible { outline-offset: 0; }
+
+.sz-docs-time {
+  flex: 0 0 auto;
+  color: var(--sz-text-faint);
+  font-size: var(--sz-fs-xs);
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.sz-docs-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: 0 0 auto;
+}
+.sz-docs-actions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 26px;
+  height: 26px;
+  padding: 0 7px;
+  border: 0;
+  border-radius: var(--sz-radius-sm);
+  background: transparent;
+  color: var(--sz-text-muted);
+  font-size: var(--sz-fs-sm);
+  font-weight: 500;
+  white-space: nowrap;
+  transition: background-color .1s ease, color .1s ease;
+}
+.sz-docs-actions button:hover { background: var(--sz-surface-4); color: var(--sz-text); }
+.sz-docs-actions button:focus-visible { outline-offset: -2px; }
+.sz-docs-actions button[disabled] { opacity: .4; pointer-events: none; }
+.sz-docs-actions button.sz-danger { color: var(--sz-danger); }
+.sz-docs-actions svg { display: block; width: 15px; height: 15px; fill: currentColor; }
+
+.sz-docs-empty {
+  padding: 24px 14px;
+  color: var(--sz-text-faint);
+  font-size: var(--sz-fs-sm);
+  text-align: center;
+}
+
+/* Inline delete confirmation inside the row (삭제 / 취소) — never window.confirm.
+   The first button is the destructive one; a .sz-danger class is honoured too. */
+.sz-docs-confirm {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+  margin-left: auto;
+  color: var(--sz-danger);
+  font-size: var(--sz-fs-sm);
+  white-space: nowrap;
+}
+.sz-docs-confirm button {
+  height: 24px;
+  padding: 0 10px;
+  border: 1px solid var(--sz-line-strong);
+  border-radius: var(--sz-radius-sm);
+  background: var(--sz-surface);
+  color: var(--sz-text);
+  font-size: var(--sz-fs-sm);
+  font-weight: 500;
+  transition: background-color .1s ease, border-color .1s ease, opacity .1s ease;
+}
+.sz-docs-confirm button:hover { background: var(--sz-surface-2); }
+.sz-docs-confirm button:focus-visible { outline-offset: 1px; }
+.sz-docs-confirm button:first-of-type,
+.sz-docs-confirm button.sz-danger {
+  border-color: transparent;
+  background: var(--sz-danger);
+  color: var(--sz-on-color);
+}
+.sz-docs-confirm button:first-of-type:hover,
+.sz-docs-confirm button.sz-danger:hover { background: var(--sz-danger); opacity: .88; }
+
+/* Motion preferences for §16–§17 (mirrors §15 for the new components). */
+@media (prefers-reduced-motion: reduce) {
+  .sz-sheet-tab,
+  .sz-sheet-add,
+  .sz-sheet-caret,
+  .sz-docs-item,
+  .sz-docs-actions button,
+  .sz-docs-confirm button { transition: none !important; }
+  .sz-sheet-tabs { scroll-behavior: auto !important; }
+  .sz-sheet-tab-active,
+  .sz-sheet-tab[aria-selected='true'] { transform: none !important; }
+}
+
+/* ── §18 Documents menu — classes the module actually emits ───────────────
+   docsmenu.js builds a header row, a scrollable list, an inline rename field and
+   a "현재" badge. Those class names had no rules at all, so their controls fell
+   back to the UA button appearance (outset border, centred text, ButtonFace) and
+   the rows wrapped onto two lines. Everything below closes that gap; the generic
+   button reset mirrors `.sz-docs-actions button` above so the two stay in step. */
+
+.sz-docs-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 2px 4px 6px;
+}
+
+.sz-docs-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  color: var(--sz-text-muted);
+  font-size: var(--sz-fs-xs);
+  font-weight: 700;
+  letter-spacing: .04em;
+}
+
+.sz-docs-busy {
+  flex: 0 0 auto;
+  color: var(--sz-text-faint);
+  font-size: var(--sz-fs-xs);
+}
+.sz-docs-busy[hidden] { display: none; }
+
+/* Every bare .sz-docs-act, wherever it sits — the refresh control lives in the
+   header, outside .sz-docs-actions, so it needs the reset in its own right. */
+.sz-docs-act,
+.sz-docs-empty-new,
+button.sz-docs-name {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.sz-docs-refresh {
+  flex: 0 0 auto;
+  height: 24px;
+  padding: 0 8px;
+  border-radius: var(--sz-radius-sm);
+  color: var(--sz-text-muted);
+  font-size: var(--sz-fs-xs);
+  font-weight: 500;
+  white-space: nowrap;
+  transition: background-color .1s ease, color .1s ease;
+}
+.sz-docs-refresh:hover { background: var(--sz-surface-4); color: var(--sz-text); }
+
+.sz-docs-list { display: block; }
+
+/* One row, one line: the name takes the slack, the timestamp and the actions
+   keep their intrinsic width. Without this the flex-wrap on .sz-docs-item pushed
+   the action pair onto a second line for longer names. */
+.sz-docs-item { flex-wrap: nowrap; }
+
+button.sz-docs-name {
+  padding: 0;
+  text-align: left;
+  color: inherit;
+  font-weight: inherit;
+}
+button.sz-docs-name:hover { text-decoration: underline; }
+button.sz-docs-name[aria-disabled='true'] { opacity: .5; }
+
+/* The rename field replaces the name slot, so it needs the name slot's sizing as
+   well as the field look. */
+input.sz-docs-rename {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 24px;
+  padding: 0 6px;
+  border: 1px solid var(--sz-accent);
+  border-radius: 4px;
+  background: var(--sz-surface);
+  color: var(--sz-text);
+  font: inherit;
+}
+input.sz-docs-rename:focus-visible { outline-offset: 0; }
+
+.sz-docs-badge {
+  flex: 0 0 auto;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--sz-accent);
+  color: var(--sz-on-accent);
+  font-size: var(--sz-fs-xs);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.sz-docs-empty-new {
+  margin-top: 10px;
+  padding: 6px 12px;
+  border-radius: var(--sz-radius-sm);
+  background: var(--sz-accent);
+  color: var(--sz-on-accent);
+  font-size: var(--sz-fs-sm);
+  font-weight: 600;
+}
+
+/* The destructive action is classed sz-docs-act-danger by the module. */
+.sz-docs-actions button.sz-docs-act-danger,
+.sz-docs-act-danger { color: var(--sz-danger); }
+.sz-docs-actions button.sz-docs-act-danger:hover { background: var(--sz-danger-soft, var(--sz-surface-4)); }
+
+/* The module marks the busy state with aria-busy; honour that alongside the
+   data-attribute and class forms already handled above. */
+.sz-docs-panel[aria-busy='true'] { opacity: .55; pointer-events: none; }
+
+/* ── §19 Home — the document list at the site root ────────────────────────
+   A separate page from the editor (public/home.html + js/home.js). It reuses the
+   token system above, so it follows the same light/dark palette with no new
+   colour literals. */
+
+.sz-home {
+  display: block;                 /* unlike the editor, this page scrolls normally */
+  min-height: 100vh;
+  background: var(--sz-bg);
+  color: var(--sz-text);
+  font-family: var(--sz-font);
+}
+
+.sz-visually-hidden {
+  position: absolute;
+  width: 1px; height: 1px;
+  margin: -1px; padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* Header ---------------------------------------------------------------- */
+.sz-home-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 12px 24px;
+  background: var(--sz-surface);
+  border-bottom: 1px solid var(--sz-line);
+}
+
+.sz-home-logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex: 0 0 auto;
+  color: var(--sz-accent);
+  font-size: 19px;
+  font-weight: 700;
+  text-decoration: none;
+  border-radius: var(--sz-radius-sm);
+}
+.sz-home-logo span { color: var(--sz-text); }
+.sz-home-logo:focus-visible { outline: var(--sz-focus-w) solid var(--sz-accent); outline-offset: 3px; }
+
+.sz-home-tools {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1 1 320px;
+  justify-content: flex-end;
+  min-width: 0;
+}
+
+.sz-home-search {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1 1 260px;
+  max-width: 460px;
+  min-width: 0;
+  padding: 0 12px;
+  height: 38px;
+  border: 1px solid var(--sz-line);
+  border-radius: 999px;
+  background: var(--sz-surface-2);
+  color: var(--sz-text-muted);
+}
+.sz-home-search:focus-within {
+  border-color: var(--sz-accent);
+  background: var(--sz-surface);
+}
+.sz-home-search input {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: var(--sz-text);
+  font: inherit;
+  font-size: var(--sz-fs);
+  outline: none;
+}
+.sz-home-search input::-webkit-search-cancel-button { cursor: pointer; }
+
+.sz-home-sort select {
+  height: 38px;
+  padding: 0 10px;
+  border: 1px solid var(--sz-line);
+  border-radius: var(--sz-radius-sm);
+  background: var(--sz-surface);
+  color: var(--sz-text);
+  font: inherit;
+  font-size: var(--sz-fs-sm);
+  cursor: pointer;
+}
+.sz-home-sort select:focus-visible { outline: var(--sz-focus-w) solid var(--sz-accent); outline-offset: 1px; }
+
+/* Main ------------------------------------------------------------------ */
+.sz-home-main {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 26px 24px 64px;
+}
+
+.sz-home-title {
+  margin: 0 0 16px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--sz-text-muted);
+  letter-spacing: .03em;
+}
+
+.sz-home-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(216px, 1fr));
+  gap: 18px;
+}
+
+/* Cards ----------------------------------------------------------------- */
+.sz-home-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--sz-line);
+  border-radius: var(--sz-radius);
+  background: var(--sz-surface);
+  color: inherit;
+  text-decoration: none;
+  overflow: hidden;
+  transition: border-color .12s ease, box-shadow .12s ease;
+}
+.sz-home-card:hover { border-color: var(--sz-line-strong); box-shadow: var(--sz-shadow-1); }
+.sz-home-card:focus-visible { outline: var(--sz-focus-w) solid var(--sz-accent); outline-offset: 2px; }
+.sz-home-card-busy { border-color: var(--sz-accent); }
+
+/* A hint of a spreadsheet, drawn with gradients — no image request. */
+.sz-home-card-thumb {
+  height: 118px;
+  border-bottom: 1px solid var(--sz-line);
+  background:
+    linear-gradient(var(--sz-line) 1px, transparent 1px) 0 0 / 100% 22px,
+    linear-gradient(90deg, var(--sz-line) 1px, transparent 1px) 0 0 / 34px 100%,
+    linear-gradient(180deg, var(--sz-accent-soft) 0 22px, transparent 22px) 0 0 / 100% 100%,
+    var(--sz-surface);
+  opacity: .85;
+}
+
+.sz-home-card-body { padding: 11px 13px 13px; }
+
+.sz-home-card-name {
+  font-size: var(--sz-fs);
+  font-weight: 600;
+  line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sz-home-card-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+  color: var(--sz-text-faint);
+  font-size: var(--sz-fs-xs);
+  font-variant-numeric: tabular-nums;
+}
+.sz-home-card-meta > * + *::before { content: '·'; margin-right: 8px; }
+
+/* The "new document" card ----------------------------------------------- */
+.sz-home-card-new {
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 190px;
+  border-style: dashed;
+  border-width: 2px;
+  color: var(--sz-accent);
+  background: var(--sz-surface-2);
+}
+.sz-home-card-new:hover { background: var(--sz-accent-soft); }
+.sz-home-card-new .sz-home-card-name { color: var(--sz-accent); font-weight: 700; }
+.sz-home-card-plus { display: flex; }
+
+/* Row actions ------------------------------------------------------------ */
+.sz-home-card-menu,
+.sz-home-confirm {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 9px 10px;
+}
+.sz-home-confirm { flex-wrap: wrap; color: var(--sz-text-muted); font-size: var(--sz-fs-xs); }
+.sz-home-confirm > span { flex: 1 1 auto; }
+
+.sz-home-act {
+  height: 26px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: var(--sz-radius-sm);
+  background: transparent;
+  color: var(--sz-text-muted);
+  font: inherit;
+  font-size: var(--sz-fs-xs);
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color .1s ease, color .1s ease;
+}
+.sz-home-act:hover { background: var(--sz-surface-4); color: var(--sz-text); }
+.sz-home-act:focus-visible { outline: var(--sz-focus-w) solid var(--sz-accent); outline-offset: -1px; }
+.sz-home-act-danger { color: var(--sz-danger); }
+.sz-home-act-danger:hover { background: var(--sz-danger-soft); color: var(--sz-danger); }
+
+.sz-home-rename {
+  width: 100%;
+  box-sizing: border-box;
+  height: 28px;
+  padding: 0 7px;
+  border: 1px solid var(--sz-accent);
+  border-radius: 4px;
+  background: var(--sz-surface);
+  color: var(--sz-text);
+  font: inherit;
+  font-size: var(--sz-fs);
+  font-weight: 600;
+}
+
+/* Empty / error states --------------------------------------------------- */
+.sz-home-empty,
+.sz-home-error {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 190px;
+  padding: 28px;
+  border: 1px dashed var(--sz-line);
+  border-radius: var(--sz-radius);
+  color: var(--sz-text-muted);
+  text-align: center;
+}
+.sz-home-empty p, .sz-home-error p { margin: 0; }
+.sz-home-empty-sub { color: var(--sz-text-faint); font-size: var(--sz-fs-sm); }
+.sz-home-error { border-color: var(--sz-danger); color: var(--sz-danger); }
+
+@media (max-width: 560px) {
+  .sz-home-header { padding: 10px 14px; }
+  .sz-home-main { padding: 18px 14px 48px; }
+  .sz-home-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+  .sz-home-card-thumb { height: 86px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sz-home-card, .sz-home-act { transition: none; }
+}
+
+/* ── §20 Merged cells ─────────────────────────────────────────────────────
+   Spec §21. Two surfaces: the merged rectangle in the grid (§8) and the
+   toolbar control that creates one (§7). No new tokens — every colour below is
+   one of §1's, so dark mode follows with no extra rules.
+
+   The grid draws a merged rectangle as ONE .sz-cell node, sized to the union of
+   its cells and carrying data-merge="A1:C1"; the covered cells are not rendered
+   at all. That is why so little has to change: with no nodes inside the
+   rectangle there is no interior grid line to hide, .sz-cell's right+bottom 1px
+   insets land on the rectangle's outer edge exactly as they do on a single
+   cell, and its `display:grid; align-content:center` centres the text over the
+   full height while the renderer's inline text-align still owns the horizontal
+   side.
+
+   What is deliberately NOT redeclared on the bare [data-merge] rule: box-shadow
+   and z-index. An attribute selector outranks the single-class
+   .sz-cell-selected / .sz-cell-active, so redeclaring either there would strip
+   the selection wash and drop the active cell out of its raised layer. Leaving
+   them where they are is what makes both follow the merged rectangle: they are
+   painted on the one node, inset, so they cover it whole and shift no layout.
+
+   The context-menu entries (셀 병합 / 병합 해제) are plain .sz-menu-item rows and
+   need nothing beyond §10. */
+
+.sz-cell[data-merge] {
+  /* Nothing may paint a line inside the rectangle: no cell background image, no
+     decorative pseudo-element. The 1px outer treatment stays with .sz-cell. */
+  background-image: none;
+  /* Restated for the multi-row case: without it a grid container's single row
+     track would stretch and the text would ride the top of a tall rectangle. */
+  align-content: center;
+}
+.sz-cell[data-merge]::before,
+.sz-cell[data-merge]::after { content: none; }
+
+/* The selection wash in §8 is an inset shadow with a 9999px spread, which stops
+   meeting in the middle once a box passes ~20000px — and a merged rectangle
+   can: a whole column is 5000 rows tall, a whole row 702 columns wide. On a
+   merged cell the wash is painted as a background layer instead. It fills any
+   size, sits above the cell's own inline background-color and below its text,
+   and reads identically to the normal-cell wash at ordinary sizes. */
+.sz-cell[data-merge].sz-cell-selected {
+  background-image: linear-gradient(var(--sz-sel-fill), var(--sz-sel-fill));
+  box-shadow:
+    inset -1px 0 0 var(--sz-line),
+    inset  0 -1px 0 var(--sz-line);
+}
+
+/* --- Toolbar merge control (spec §21.5) --------------------------------- */
+/* A split control in its own .sz-tb-group: the main button toggles
+   셀 병합 / 병합 해제, the caret opens 전체 / 가로 / 세로 / 해제. Both are ordinary
+   .sz-tb-btn nodes, so the rules here only narrow the caret, join the pair and
+   re-assert the pressed colours that these later selectors would otherwise
+   beat. */
+.sz-tb-merge { padding: 0 8px; }
+
+.sz-tb-merge-caret {
+  min-width: 18px;
+  width: 18px;
+  padding: 0;
+  color: var(--sz-text-faint);
+}
+.sz-tb-merge-caret svg { width: 12px; height: 12px; }
+/* Fallback glyph for a host that ships the caret button with no icon in it. */
+.sz-tb-merge-caret:empty::after { content: '▾'; font-size: 10px; line-height: 1; }
+
+/* Cancel the group's 2px gap so the two read as one control. */
+.sz-tb-merge + .sz-tb-merge-caret { margin-left: -2px; }
+
+/* Pressed (selection contains a merge) and open (menu showing) states. Two
+   classes, or a class plus an attribute, so they outrank both .sz-tb-btn-active
+   and the caret's own colour above. */
+.sz-tb-merge.sz-tb-btn-active,
+.sz-tb-merge[aria-pressed='true'],
+.sz-tb-merge-caret.sz-tb-btn-active,
+.sz-tb-merge-caret[aria-expanded='true'] {
+  background: var(--sz-accent-soft);
+  color: var(--sz-accent);
+}
+.sz-tb-merge.sz-tb-btn-active:hover,
+.sz-tb-merge[aria-pressed='true']:hover,
+.sz-tb-merge-caret.sz-tb-btn-active:hover,
+.sz-tb-merge-caret[aria-expanded='true']:hover {
+  background: var(--sz-accent-soft-2);
+  color: var(--sz-accent);
+}
+
+/* The mode menu. Same floating-panel chrome as the colour popover in §7 and the
+   tab menu in §16, hidden through [hidden] the same way. `position` is declared
+   only as a fallback: the toolbar positions its popovers with an inline
+   position:fixed plus left/top, which overrides this and needs no containing
+   block. Anchored inside the relatively-positioned .sz-tb-group instead, the
+   absolute fallback still floats it out of the toolbar row rather than
+   stretching the strip. */
+.sz-tb-merge-menu {
+  position: absolute;
+  z-index: 240;
+  min-width: 176px;
+  max-height: min(60vh, 320px);
+  padding: 6px;
+  background: var(--sz-overlay);
+  border: 1px solid var(--sz-line);
+  border-radius: var(--sz-radius);
+  box-shadow: var(--sz-shadow-2);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--sz-scroll-thumb) var(--sz-scroll-track);
+  user-select: none;
+}
+.sz-tb-merge-menu[hidden] { display: none; }
+
+.sz-tb-merge-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 7px 10px;
+  border: 0;
+  border-radius: var(--sz-radius-sm);
+  background: transparent;
+  color: var(--sz-text);
+  font-family: var(--sz-font);
+  font-size: var(--sz-fs);
+  font-weight: 400;
+  text-align: left;
+  white-space: nowrap;
+}
+/* :focus as well as :hover — the menu moves focus with the arrow keys, and the
+   moved-to row has to look chosen even when the ring is not drawn. */
+.sz-tb-merge-item:hover,
+.sz-tb-merge-item:focus { background: var(--sz-surface-3); }
+.sz-tb-merge-item:focus-visible { outline-offset: -2px; }
+.sz-tb-merge-item[disabled],
+.sz-tb-merge-item[aria-disabled='true'],
+.sz-tb-merge-item.sz-disabled { color: var(--sz-text-faint); pointer-events: none; }
+.sz-tb-merge-item[aria-checked='true'],
+.sz-tb-merge-item.sz-tb-btn-active { color: var(--sz-accent); }
+.sz-tb-merge-item svg { flex: 0 0 auto; width: 16px; height: 16px; }
+.sz-tb-merge-item + hr { margin: 5px 4px; }
+
+/* §15 already flattens every transition for a reduced-motion reader; this states
+   the same intent locally, the way §19 does for the home cards. */
+@media (prefers-reduced-motion: reduce) {
+  .sz-tb-merge,
+  .sz-tb-merge-caret { transition: none; }
+}
+
+/* ── §21 Cell formatting controls (spec §22) ──────────────────────────────
+   The six toolbar controls that drive the new style keys: 글꼴 (ff), 글꼴 크기
+   (fs), 테두리 (bd), 세로 정렬 (va), 텍스트 줄바꿈 (wrap), 텍스트 회전 (rot).
+
+   THIS SECTION DELIBERATELY ADDS NO .sz-cell RULE. All six keys are painted by
+   the renderer as INLINE declarations on the cell node, and an inline
+   declaration already outranks every rule in §8 — so the stylesheet has nothing
+   to contribute and, more importantly, nothing to break: a cell carrying none
+   of the six keys still matches exactly the §8 rules it matched before this
+   section existed, byte for byte. Anything added here for the *cell* would have
+   to be undone again for the unstyled case, which is precisely the bug to
+   avoid.
+
+   No new tokens: every colour below is one of §1's, so dark mode follows with
+   no extra rules. The triggers assume the host also puts .sz-tb-btn on them,
+   the way §20's merge control does; the zero-specificity fallback at the end of
+   the section dresses a bare <button> so nothing renders as a native control
+   even if it forgets.
+
+   Popover surface: .sz-tb-drop is the shared chrome for every one of these
+   menus, identical to §20's .sz-tb-merge-menu — same z-index rung (240: above
+   the grid and the context menu at 200, below the documents panel at 320 and
+   the toasts at 400), same [hidden] contract, same scroll treatment.
+   `position` is only a fallback; toolbar.js parents its popovers to <body> with
+   an inline position:fixed plus left/top, which overrides it. */
+
+/* --- shared: the six triggers ------------------------------------------- */
+.sz-tb-font,
+.sz-tb-fontsize,
+.sz-tb-size-step,
+.sz-tb-border,
+.sz-tb-valign,
+.sz-tb-wrap,
+.sz-tb-rotate {
+  flex: 0 0 auto;
+  font-weight: 500;
+}
+
+/* Open state. Two-token selectors so they outrank .sz-tb-btn-active and the
+   per-control colours below, exactly as §20 does for the merge caret. */
+.sz-tb-font[aria-expanded='true'],
+.sz-tb-fontsize[aria-expanded='true'],
+.sz-tb-border[aria-expanded='true'],
+.sz-tb-valign[aria-expanded='true'],
+.sz-tb-wrap[aria-expanded='true'],
+.sz-tb-rotate[aria-expanded='true'] {
+  background: var(--sz-accent-soft);
+  color: var(--sz-accent);
+}
+.sz-tb-font[aria-expanded='true']:hover,
+.sz-tb-fontsize[aria-expanded='true']:hover,
+.sz-tb-border[aria-expanded='true']:hover,
+.sz-tb-valign[aria-expanded='true']:hover,
+.sz-tb-wrap[aria-expanded='true']:hover,
+.sz-tb-rotate[aria-expanded='true']:hover {
+  background: var(--sz-accent-soft-2);
+  color: var(--sz-accent);
+}
+
+/* --- 글꼴 --------------------------------------------------------------- */
+/* A name, not an icon, so it needs a width budget and an ellipsis. The button
+   is a flex container: text-overflow has to land on a child box, not on the
+   flex container itself, which is why `> *` carries it. */
+.sz-tb-font {
+  justify-content: space-between;
+  min-width: 104px;
+  max-width: 148px;
+  padding: 0 8px;
+  overflow: hidden;
+}
+.sz-tb-font > * {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.sz-tb-font > svg { flex: 0 0 auto; }
+
+/* --- 글꼴 크기 ---------------------------------------------------------- */
+/* − / value / + . Negative margins trim .sz-tb-group's 2px gap to 1px so the
+   trio reads as one control without the parts actually touching. */
+.sz-tb-size-step {
+  min-width: 24px;
+  width: 24px;
+  padding: 0;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1;
+  color: var(--sz-text-faint);
+}
+.sz-tb-size-step svg { width: 14px; height: 14px; }
+
+.sz-tb-fontsize {
+  justify-content: center;
+  min-width: 46px;
+  padding: 0 6px;
+  font-variant-numeric: tabular-nums;
+}
+.sz-tb-size-step + .sz-tb-fontsize,
+.sz-tb-fontsize + .sz-tb-size-step,
+.sz-tb-size-step + .sz-tb-size-step { margin-left: -1px; }
+
+/* When the host renders the value as a text field rather than a menu button it
+   gets the same bordered look .sz-toolbar's <select>s have. The native spinner
+   is removed: the − / + buttons are the affordance. */
+input.sz-tb-fontsize,
+.sz-tb-fontsize input {
+  width: 46px;
+  height: 26px;
+  padding: 0 4px;
+  border: 1px solid var(--sz-line-strong);
+  border-radius: var(--sz-radius-sm);
+  background: var(--sz-surface);
+  color: var(--sz-text);
+  font-size: var(--sz-fs-sm);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+input.sz-tb-fontsize::-webkit-outer-spin-button,
+input.sz-tb-fontsize::-webkit-inner-spin-button,
+.sz-tb-fontsize input::-webkit-outer-spin-button,
+.sz-tb-fontsize input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* --- 테두리 ------------------------------------------------------------- */
+.sz-tb-border { position: relative; }
+
+/* The 3x3 grid glyph, drawn in CSS rather than shipped as an image: two
+   repeating gradients lay the interior lines at 0/5/10 of a 15px box, and two
+   inset shadows close the right and bottom edges the gradients cannot reach.
+   It paints in currentColor, so the pressed state and dark mode need no extra
+   rule. Guarded by :empty exactly like §20's merge-caret fallback — a host that
+   ships its own icon inside the button keeps it. */
+.sz-tb-border:empty::before {
+  content: '';
+  width: 15px;
+  height: 15px;
+  background-image:
+    repeating-linear-gradient(to right,  currentColor 0 1px, transparent 1px 5px),
+    repeating-linear-gradient(to bottom, currentColor 0 1px, transparent 1px 5px);
+  box-shadow:
+    inset -1px 0 0 currentColor,
+    inset  0 -1px 0 currentColor;
+}
+
+/* --- 세로 정렬 / 텍스트 줄바꿈 / 텍스트 회전 ----------------------------- */
+/* Icon buttons; the host supplies the icon. These short Korean fallbacks only
+   appear when it ships the button empty, so a missing icon degrades to a
+   readable control instead of a blank square. */
+.sz-tb-font:empty::after   { content: '글꼴'; }
+.sz-tb-valign:empty::after { content: '세로'; }
+.sz-tb-wrap:empty::after   { content: '줄바꿈'; }
+.sz-tb-rotate:empty::after { content: '회전'; }
+.sz-tb-font:empty::after,
+.sz-tb-valign:empty::after,
+.sz-tb-wrap:empty::after,
+.sz-tb-rotate:empty::after { font-size: var(--sz-fs-sm); line-height: 1; }
+
+/* --- the shared dropdown surface ----------------------------------------- */
+.sz-tb-drop {
+  position: absolute;
+  z-index: 240;
+  /* min-width is itself capped: on a very narrow window a bare min-width would
+     beat max-width and push the panel off the edge. */
+  min-width: min(176px, calc(100vw - 12px));
+  max-width: min(320px, calc(100vw - 12px));
+  max-height: min(60vh, 340px);
+  padding: 6px;
+  background: var(--sz-overlay);
+  border: 1px solid var(--sz-line);
+  border-radius: var(--sz-radius);
+  box-shadow: var(--sz-shadow-2);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--sz-scroll-thumb) var(--sz-scroll-track);
+  user-select: none;
+}
+.sz-tb-drop[hidden] { display: none; }
+.sz-tb-drop::-webkit-scrollbar { width: 10px; }
+.sz-tb-drop::-webkit-scrollbar-thumb {
+  background: var(--sz-scroll-thumb);
+  border: 3px solid var(--sz-overlay);
+  border-radius: 999px;
+}
+
+/* Rows. `> button` as well as the explicit class, so a host that emits plain
+   buttons still gets menu rows rather than native controls. font-family is
+   stated so a row inherits the UI face by default — the 글꼴 menu overrides it
+   per row with an inline font-family (spec §22.4), which always wins. */
+.sz-tb-drop > button,
+.sz-tb-drop-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 7px 10px;
+  border: 0;
+  border-radius: var(--sz-radius-sm);
+  background: transparent;
+  color: var(--sz-text);
+  font-family: var(--sz-font);
+  font-size: var(--sz-fs);
+  font-weight: 400;
+  text-align: left;
+  white-space: nowrap;
+}
+/* :focus as well as :hover — these menus move focus with the arrow keys, and
+   the moved-to row has to look chosen even when no ring is drawn. */
+.sz-tb-drop > button:hover,
+.sz-tb-drop > button:focus,
+.sz-tb-drop-item:hover,
+.sz-tb-drop-item:focus { background: var(--sz-surface-3); }
+.sz-tb-drop > button:focus-visible,
+.sz-tb-drop-item:focus-visible { outline-offset: -2px; }
+.sz-tb-drop > button[disabled],
+.sz-tb-drop > button[aria-disabled='true'],
+.sz-tb-drop-item[disabled],
+.sz-tb-drop-item[aria-disabled='true'],
+.sz-tb-drop-item.sz-disabled { color: var(--sz-text-faint); pointer-events: none; }
+.sz-tb-drop > button[aria-checked='true'],
+.sz-tb-drop > button[aria-selected='true'],
+.sz-tb-drop > button.sz-tb-btn-active,
+.sz-tb-drop-item[aria-checked='true'],
+.sz-tb-drop-item.sz-tb-btn-active { color: var(--sz-accent); }
+.sz-tb-drop svg { flex: 0 0 auto; width: 16px; height: 16px; fill: currentColor; }
+.sz-tb-drop hr { margin: 6px 4px; }
+
+/* Section captions inside a drop (테두리 굵기 / 스타일 / 색상). Scoped to the
+   drop so the colour popover's own title in §7 is untouched. */
+.sz-tb-drop-title,
+.sz-tb-drop .sz-tb-pop-title {
+  margin: 2px 4px 6px;
+  color: var(--sz-text-faint);
+  font-size: var(--sz-fs-xs);
+  font-weight: 600;
+  letter-spacing: .02em;
+}
+
+/* Sub-controls. §7's `.sz-toolbar select` rule cannot reach these: the panel is
+   parented to <body>, not to the toolbar strip. */
+.sz-tb-drop select {
+  width: 100%;
+  height: 28px;
+  padding: 0 6px;
+  border: 1px solid var(--sz-line-strong);
+  border-radius: var(--sz-radius-sm);
+  background: var(--sz-surface);
+  color: var(--sz-text);
+  font-size: var(--sz-fs-sm);
+}
+.sz-tb-drop label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 3px 4px;
+  color: var(--sz-text-muted);
+  font-size: var(--sz-fs-sm);
+  white-space: nowrap;
+}
+/* A select inside a caption row shares the row instead of claiming all of it,
+   which is what forces the caption to wrap onto a second line. */
+.sz-tb-drop label > select {
+  flex: 1 1 auto;
+  width: auto;
+  min-width: 0;
+}
+
+/* --- the 3x3 border preset picker ---------------------------------------- */
+/* Declared AFTER the .sz-tb-drop rows on purpose: if the host merges the two
+   (one panel carrying both classes, the presets as its direct children) these
+   rules have equal specificity and must be the pair that wins. */
+.sz-tb-border-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 30px);
+  gap: 2px;
+  justify-content: start;
+  padding: 2px;
+}
+.sz-tb-border-grid > button {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--sz-radius-sm);
+  background: transparent;
+  color: var(--sz-text);
+  transition: background-color .1s ease, color .1s ease;
+}
+.sz-tb-border-grid > button:hover,
+.sz-tb-border-grid > button:focus { background: var(--sz-surface-3); }
+.sz-tb-border-grid > button:focus-visible { outline-offset: -2px; }
+.sz-tb-border-grid > button[aria-pressed='true'],
+.sz-tb-border-grid > button[aria-checked='true'],
+.sz-tb-border-grid > button.sz-tb-btn-active {
+  background: var(--sz-accent-soft);
+  color: var(--sz-accent);
+}
+.sz-tb-border-grid > button svg { width: 16px; height: 16px; fill: currentColor; }
+
+/* Each preset icon is two stacked 15px layers, both drawn in CSS:
+     ::before  the faint 3x3 grid every preset shows, in --sz-line-strong
+     ::after   the edges THIS preset paints, in currentColor
+   The three custom properties are set per preset below and inherit into
+   ::after; their fallbacks make an unrecognised preset — and 없음 — draw the
+   faint grid alone, which is exactly what "no borders" should look like.
+   Offsets are 7px rather than 50% so the 1px lines land on whole pixels inside
+   the 30px button. */
+.sz-tb-border-grid > button:empty::before,
+.sz-tb-border-grid > button:empty::after {
+  content: '';
+  position: absolute;
+  top: 7px;
+  left: 7px;
+  width: 15px;
+  height: 15px;
+}
+.sz-tb-border-grid > button:empty::before {
+  background-image:
+    repeating-linear-gradient(to right,  var(--sz-line-strong) 0 1px, transparent 1px 5px),
+    repeating-linear-gradient(to bottom, var(--sz-line-strong) 0 1px, transparent 1px 5px);
+  box-shadow:
+    inset -1px 0 0 var(--sz-line-strong),
+    inset  0 -1px 0 var(--sz-line-strong);
+}
+.sz-tb-border-grid > button:empty::after {
+  background-image: var(--sz-bd-lines, none);
+  background-size: var(--sz-bd-size, auto);
+  background-position: var(--sz-bd-pos, 0 0);
+  background-repeat: no-repeat;
+  box-shadow: var(--sz-bd-edges, none);
+}
+
+/* The preset is read from data-cmd ('border:all') or data-preset ('all'); the
+   suffix match covers both spellings, and no two preset names of §22.3 share a
+   suffix with each other. */
+.sz-tb-border-grid > button[data-cmd$='all'],
+.sz-tb-border-grid > button[data-preset$='all'] {
+  --sz-bd-edges:
+    inset 0 1px 0 currentColor, inset 0 -1px 0 currentColor,
+    inset 1px 0 0 currentColor, inset -1px 0 0 currentColor;
+  --sz-bd-lines:
+    linear-gradient(currentColor 0 0), linear-gradient(currentColor 0 0),
+    linear-gradient(currentColor 0 0), linear-gradient(currentColor 0 0);
+  --sz-bd-size: 1px 100%, 1px 100%, 100% 1px, 100% 1px;
+  --sz-bd-pos:  5px 0, 10px 0, 0 5px, 0 10px;
+}
+.sz-tb-border-grid > button[data-cmd$='outer'],
+.sz-tb-border-grid > button[data-preset$='outer'] {
+  --sz-bd-edges:
+    inset 0 1px 0 currentColor, inset 0 -1px 0 currentColor,
+    inset 1px 0 0 currentColor, inset -1px 0 0 currentColor;
+}
+.sz-tb-border-grid > button[data-cmd$='inner'],
+.sz-tb-border-grid > button[data-preset$='inner'] {
+  --sz-bd-lines:
+    linear-gradient(currentColor 0 0), linear-gradient(currentColor 0 0),
+    linear-gradient(currentColor 0 0), linear-gradient(currentColor 0 0);
+  --sz-bd-size: 1px 100%, 1px 100%, 100% 1px, 100% 1px;
+  --sz-bd-pos:  5px 0, 10px 0, 0 5px, 0 10px;
+}
+.sz-tb-border-grid > button[data-cmd$='horizontal'],
+.sz-tb-border-grid > button[data-preset$='horizontal'] {
+  --sz-bd-lines: linear-gradient(currentColor 0 0), linear-gradient(currentColor 0 0);
+  --sz-bd-size: 100% 1px, 100% 1px;
+  --sz-bd-pos:  0 5px, 0 10px;
+}
+.sz-tb-border-grid > button[data-cmd$='vertical'],
+.sz-tb-border-grid > button[data-preset$='vertical'] {
+  --sz-bd-lines: linear-gradient(currentColor 0 0), linear-gradient(currentColor 0 0);
+  --sz-bd-size: 1px 100%, 1px 100%;
+  --sz-bd-pos:  5px 0, 10px 0;
+}
+.sz-tb-border-grid > button[data-cmd$='top'],
+.sz-tb-border-grid > button[data-preset$='top'] {
+  --sz-bd-edges: inset 0 1px 0 currentColor;
+}
+.sz-tb-border-grid > button[data-cmd$='bottom'],
+.sz-tb-border-grid > button[data-preset$='bottom'] {
+  --sz-bd-edges: inset 0 -1px 0 currentColor;
+}
+.sz-tb-border-grid > button[data-cmd$='left'],
+.sz-tb-border-grid > button[data-preset$='left'] {
+  --sz-bd-edges: inset 1px 0 0 currentColor;
+}
+.sz-tb-border-grid > button[data-cmd$='right'],
+.sz-tb-border-grid > button[data-preset$='right'] {
+  --sz-bd-edges: inset -1px 0 0 currentColor;
+}
+/* 없음 keeps every fallback: the faint grid with nothing painted over it. */
+.sz-tb-border-grid > button[data-cmd$='none'],
+.sz-tb-border-grid > button[data-preset$='none'] {
+  --sz-bd-edges: none;
+  --sz-bd-lines: none;
+}
+
+/* --- fallback chrome ------------------------------------------------------ */
+/* Only reached when the host omits .sz-tb-btn. :where() pins this at ZERO
+   specificity, so .sz-tb-btn, .sz-tb-btn-active, every state rule above and all
+   the per-control geometry still win — it can dress a bare <button>, but it can
+   never repaint a properly-classed one. */
+:where(button.sz-tb-font, button.sz-tb-fontsize, button.sz-tb-size-step,
+       button.sz-tb-border, button.sz-tb-valign, button.sz-tb-wrap,
+       button.sz-tb-rotate) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-width: 30px;
+  height: 30px;
+  padding: 0 7px;
+  border: 0;
+  border-radius: var(--sz-radius-sm);
+  background: transparent;
+  color: var(--sz-text-muted);
+  font-size: var(--sz-fs);
+  line-height: 1;
+  transition: background-color .1s ease, color .1s ease;
+}
+:where(button.sz-tb-font:hover, button.sz-tb-fontsize:hover,
+       button.sz-tb-size-step:hover, button.sz-tb-border:hover,
+       button.sz-tb-valign:hover, button.sz-tb-wrap:hover,
+       button.sz-tb-rotate:hover) {
+  background: var(--sz-surface-3);
+  color: var(--sz-text);
+}
+
+/* A narrow window: the font name gives up its width first — it is the only one
+   of the six that is text rather than an icon. */
+@media (max-width: 720px) {
+  .sz-tb-font { min-width: 72px; max-width: 96px; padding: 0 6px; }
+}
+
+/* §15 already flattens every transition for a reduced-motion reader; stated
+   locally too, the way §19 and §20 do. */
+@media (prefers-reduced-motion: reduce) {
+  .sz-tb-font,
+  .sz-tb-fontsize,
+  .sz-tb-size-step,
+  .sz-tb-border,
+  .sz-tb-valign,
+  .sz-tb-wrap,
+  .sz-tb-rotate,
+  .sz-tb-border-grid > button { transition: none; }
+}
+
+/* ── §22 Tools, batch B (spec §23) ────────────────────────────────────────
+   서식 복사 (painter), 확대/축소 (zoom), 인쇄 (print), 링크 삽입 (link) and
+   함수 도우미 (Σ).
+
+   THIS SECTION ADDS NO .sz-cell RULE — the same promise §21 makes, for the same
+   reason. Four of the five tools never put anything in a cell at all, and 링크
+   puts an <a> INSIDE one, so every rule below is either a new class on a new
+   node or a descendant rule that can only match while the painter is armed. A
+   cell with no link, in a grid with no painter armed, matches exactly the §8
+   rules it matched before this section existed.
+
+   No new tokens: every colour here is one of §1's, so dark mode follows with no
+   extra work and there is not a single literal below.
+
+   Chrome, layering and the [hidden] contract are the ones already in use:
+     - the five triggers are .sz-tb-btn nodes (§7); the rules below add only
+       geometry, the pressed / open colours, and a Korean text fallback for a
+       button the host ships with no icon in it — §20's `:empty::after` pattern.
+     - .sz-link-panel and a floating .sz-fx-list wear the same floating-panel
+       chrome as .sz-tb-drop (§21) on the same z-index rung (240: above the grid
+       and the context menu at 200, below the documents panel at 320 and the
+       toasts at 400). `position` is a fallback only — toolbar.js parents its
+       popovers to <body> with an inline position:fixed plus left/top, which
+       overrides it; the fallback still floats them out of the toolbar row.
+     - buttons inside the panels are borderless fills, never a 1px box, so none
+       of them can be mistaken for an unstyled native control. */
+
+/* --- shared: the five triggers ------------------------------------------ */
+.sz-tb-painter,
+.sz-tb-zoom,
+.sz-tb-print,
+.sz-tb-link,
+.sz-tb-fx,
+.sz-tb-fx-caret {
+  flex: 0 0 auto;
+  font-weight: 500;
+}
+
+/* Open state (a menu or the link panel is showing). Two-token selectors so they
+   outrank .sz-tb-btn-active and the per-control colours further down, exactly
+   as §20 and §21 do. */
+.sz-tb-zoom[aria-expanded='true'],
+.sz-tb-link[aria-expanded='true'],
+.sz-tb-fx[aria-expanded='true'],
+.sz-tb-fx-caret[aria-expanded='true'] {
+  background: var(--sz-accent-soft);
+  color: var(--sz-accent);
+}
+.sz-tb-zoom[aria-expanded='true']:hover,
+.sz-tb-link[aria-expanded='true']:hover,
+.sz-tb-fx[aria-expanded='true']:hover,
+.sz-tb-fx-caret[aria-expanded='true']:hover {
+  background: var(--sz-accent-soft-2);
+  color: var(--sz-accent);
+}
+
+/* The active cell already carries a link: the same pressed look the style
+   toggles in §7 get. */
+.sz-tb-link[aria-pressed='true'] {
+  background: var(--sz-accent-soft);
+  color: var(--sz-accent);
+}
+.sz-tb-link[aria-pressed='true']:hover {
+  background: var(--sz-accent-soft-2);
+  color: var(--sz-accent);
+}
+
+/* --- 서식 복사 ----------------------------------------------------------- */
+.sz-tb-painter { padding: 0 8px; }
+
+/* ARMED (single click): one selection to go, then it disarms itself. The soft
+   wash plus a hairline ring reads as "waiting for a target" rather than as an
+   ordinary toggle that happens to be on. */
+.sz-tb-painter[aria-pressed='true'],
+.sz-tb-painter[data-armed='true'],
+.sz-tb-painter.sz-tb-painter-armed,
+.sz-tb-painter.sz-tb-btn-active {
+  background: var(--sz-accent-soft);
+  color: var(--sz-accent);
+  box-shadow: inset 0 0 0 1px var(--sz-accent-soft-2);
+}
+.sz-tb-painter[aria-pressed='true']:hover,
+.sz-tb-painter[data-armed='true']:hover,
+.sz-tb-painter.sz-tb-painter-armed:hover,
+.sz-tb-painter.sz-tb-btn-active:hover {
+  background: var(--sz-accent-soft-2);
+  color: var(--sz-accent);
+}
+
+/* STICKY (double click): it keeps painting until it is switched off, Escape is
+   pressed or the sheet changes — the one toolbar state that outlives the next
+   click, so it gets the one solid fill in the strip. Declared after the armed
+   block, at matching specificity, so a node carrying both states shows this
+   one; the :hover pair below does the same against the armed :hover pair. */
+.sz-tb-painter[data-sticky='true'],
+.sz-tb-painter[data-mode='sticky'],
+.sz-tb-painter[data-state='sticky'],
+.sz-tb-painter.sz-tb-painter-sticky {
+  background: var(--sz-accent);
+  color: var(--sz-on-accent);
+  box-shadow: none;
+}
+.sz-tb-painter[data-sticky='true']:hover,
+.sz-tb-painter[data-mode='sticky']:hover,
+.sz-tb-painter[data-state='sticky']:hover,
+.sz-tb-painter.sz-tb-painter-sticky:hover {
+  background: var(--sz-accent-hover);
+  color: var(--sz-on-accent);
+}
+
+/* --- 확대/축소 ----------------------------------------------------------- */
+/* The label is a percentage the host rewrites on every zoom change: tabular
+   figures and a width budget keep 50% / 100% / 200% from shifting the controls
+   beside it. */
+.sz-tb-zoom {
+  justify-content: center;
+  gap: 3px;
+  min-width: 58px;
+  padding: 0 8px;
+  font-variant-numeric: tabular-nums;
+}
+/* A caret only when the host ships no icon of its own. Its own rule: :has() is
+   not universal, and an unsupported selector must not take the geometry above
+   down with it. */
+.sz-tb-zoom:not(:empty):not(:has(svg))::after {
+  content: '▾';
+  color: var(--sz-text-faint);
+  font-size: 10px;
+  line-height: 1;
+}
+
+/* --- 인쇄 / 링크 / 함수 도우미 ------------------------------------------- */
+.sz-tb-fx {
+  padding: 0 8px;
+  font-size: 15px;
+}
+/* The caret half of the Σ split control, narrowed and joined to it the way
+   §20's merge caret is. */
+.sz-tb-fx-caret {
+  min-width: 18px;
+  width: 18px;
+  padding: 0;
+  color: var(--sz-text-faint);
+}
+.sz-tb-fx-caret svg { width: 12px; height: 12px; }
+.sz-tb-fx + .sz-tb-fx-caret { margin-left: -2px; }
+
+/* Fallbacks for a host that ships a button with nothing inside it: a readable
+   control instead of a blank square. */
+.sz-tb-painter:empty::after,
+.sz-tb-zoom:empty::after,
+.sz-tb-print:empty::after,
+.sz-tb-link:empty::after,
+.sz-tb-fx:empty::after,
+.sz-tb-fx-caret:empty::after { font-size: var(--sz-fs-sm); line-height: 1; }
+.sz-tb-painter:empty::after { content: '서식'; }
+.sz-tb-zoom:empty::after    { content: '배율'; }
+.sz-tb-print:empty::after   { content: '인쇄'; }
+.sz-tb-link:empty::after    { content: '링크'; }
+.sz-tb-fx:empty::after      { content: 'Σ'; font-size: 16px; }
+.sz-tb-fx-caret:empty::after { content: '▾'; font-size: 10px; }
+
+/* --- 링크 삽입: the URL popover (spec §23.4) ------------------------------ */
+/* Flex-wrap does the layout: a caption, the field and any actions row each take
+   the full width, so the two buttons land on their own line — and
+   justify-content pushes them to the right without needing a wrapper element.
+   A host that does emit one gets the same result through the rule below it. */
+.sz-link-panel {
+  position: absolute;
+  z-index: 240;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  width: min(320px, calc(100vw - 12px));
+  padding: 10px;
+  background: var(--sz-overlay);
+  border: 1px solid var(--sz-line);
+  border-radius: var(--sz-radius);
+  box-shadow: var(--sz-shadow-2);
+}
+.sz-link-panel[hidden] { display: none; }
+
+.sz-link-panel > label,
+.sz-link-panel > p,
+.sz-link-panel .sz-link-title,
+.sz-link-panel .sz-tb-drop-title {
+  flex: 1 1 100%;
+  margin: 0;
+  color: var(--sz-text-faint);
+  font-size: var(--sz-fs-xs);
+  font-weight: 600;
+  letter-spacing: .02em;
+}
+
+/* The URL itself is machine text, so it reads in the monospace token. */
+.sz-link-panel input,
+.sz-link-input {
+  flex: 1 1 100%;
+  width: 100%;
+  min-width: 0;
+  height: 30px;
+  padding: 0 8px;
+  border: 1px solid var(--sz-line-strong);
+  border-radius: var(--sz-radius-sm);
+  background: var(--sz-surface);
+  color: var(--sz-text);
+  font-family: var(--sz-font-mono);
+  font-size: var(--sz-fs-sm);
+}
+.sz-link-panel input::placeholder { color: var(--sz-text-faint); }
+.sz-link-panel input:focus-visible { outline-offset: -1px; }
+/* Only http / https / mailto survive the shared sanitiser; this is how the
+   field says so before 적용 is ever pressed. */
+.sz-link-panel input[aria-invalid='true'] { border-color: var(--sz-danger); }
+.sz-link-panel .sz-link-error {
+  flex: 1 1 100%;
+  margin: -2px 0 0;
+  color: var(--sz-danger);
+  font-size: var(--sz-fs-xs);
+}
+
+.sz-link-panel .sz-link-actions,
+.sz-link-panel .sz-link-row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex: 1 1 100%;
+}
+
+/* Base chrome for the two buttons at ZERO specificity, so a host that also puts
+   .sz-btn / .sz-btn-primary on them keeps §6's look untouched. Borderless: a
+   filled rectangle can never be read as an unstyled native control. */
+:where(.sz-link-panel button) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 28px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: var(--sz-radius-sm);
+  background: var(--sz-surface-3);
+  color: var(--sz-text);
+  font-size: var(--sz-fs-sm);
+  font-weight: 600;
+  white-space: nowrap;
+  transition: background-color .12s ease, color .12s ease;
+}
+:where(.sz-link-panel button:hover) { background: var(--sz-surface-4); }
+
+/* 적용 is the primary action; 제거 is destructive. Matched by command as well as
+   by class, because toolbar.js labels its rows with data-cmd. Both carry
+   .sz-tb-btn as well, so the width and padding are restated here: a 30px-wide
+   icon button is too tight for a two-syllable Korean label. */
+.sz-link-panel .sz-link-apply,
+.sz-link-panel [data-cmd='link:set'] {
+  min-width: 56px;
+  padding: 0 12px;
+  background: var(--sz-accent);
+  color: var(--sz-on-accent);
+}
+.sz-link-panel .sz-link-apply:hover,
+.sz-link-panel [data-cmd='link:set']:hover {
+  background: var(--sz-accent-hover);
+  color: var(--sz-on-accent);
+}
+.sz-link-panel .sz-link-clear,
+.sz-link-panel [data-cmd='link:clear'] {
+  min-width: 56px;
+  padding: 0 12px;
+  color: var(--sz-danger);
+}
+.sz-link-panel .sz-link-clear:hover,
+.sz-link-panel [data-cmd='link:clear']:hover {
+  background: var(--sz-surface-3);
+  color: var(--sz-danger);
+}
+
+/* --- 함수 도우미: the searchable function list (spec §23.5) --------------- */
+/* The list, not the panel, is the scroller — that is what keeps the search
+   field pinned above it while the rows move. */
+.sz-fx-search {
+  display: block;
+  width: 100%;
+  margin: 2px 0 6px;
+}
+input.sz-fx-search,
+.sz-fx-search input {
+  width: 100%;
+  height: 28px;
+  padding: 0 8px;
+  border: 1px solid var(--sz-line-strong);
+  border-radius: var(--sz-radius-sm);
+  background: var(--sz-surface);
+  color: var(--sz-text);
+  font-family: var(--sz-font);
+  font-size: var(--sz-fs-sm);
+}
+input.sz-fx-search::placeholder,
+.sz-fx-search input::placeholder { color: var(--sz-text-faint); }
+input.sz-fx-search:focus-visible,
+.sz-fx-search input:focus-visible { outline-offset: -1px; }
+
+/* .sz-fx-list is the PANEL — toolbar.js builds the 기타 함수 drop and adds the
+   class to it — and .sz-fx-rows inside it is the scroller. Bounding the rows
+   rather than the panel is what keeps the search field in place while the list
+   moves under it. */
+.sz-fx-rows {
+  display: block;
+  max-height: min(46vh, 300px);
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--sz-scroll-thumb) var(--sz-scroll-track);
+  list-style: none;
+}
+.sz-fx-rows::-webkit-scrollbar { width: 10px; }
+.sz-fx-rows::-webkit-scrollbar-track { background: var(--sz-scroll-track); }
+.sz-fx-rows::-webkit-scrollbar-thumb {
+  background: var(--sz-scroll-thumb);
+  border: 3px solid var(--sz-overlay);
+  border-radius: 999px;
+}
+.sz-fx-rows::-webkit-scrollbar-thumb:hover { background: var(--sz-scroll-thumb-h); }
+
+.sz-fx-list[hidden] { display: none; }
+/* With a rows scroller present the panel stops scrolling itself, so there is
+   exactly one scrollbar. Own rule: where :has() is missing, §21's .sz-tb-drop
+   max-height still bounds the panel and the result is merely a second, outer
+   scrollbar — never a panel taller than the window. */
+.sz-fx-list:has(.sz-fx-rows) { max-height: none; overflow: hidden; }
+/* And a host that puts the rows straight into .sz-fx-list gets the bound there
+   instead. */
+.sz-fx-list:not(:has(.sz-fx-rows)) {
+  max-height: min(46vh, 300px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--sz-scroll-thumb) var(--sz-scroll-track);
+}
+/* The same hand-over when the list is a child of the drop rather than the drop
+   itself. */
+.sz-tb-drop:has(.sz-fx-list) { max-height: none; overflow: hidden; }
+
+/* Floating the list needs the panel chrome, which .sz-tb-drop already carries on
+   toolbar.js's panel — restating it costs nothing there and rescues a host that
+   ships the list bare. Scoped to a <body> child, which is exactly how a popover
+   is parented here, so a list nested in some other panel can never pick it up;
+   `position` also keeps it out of the body flex column, which it must not join. */
+body > .sz-fx-list {
+  position: absolute;
+  z-index: 240;
+  padding: 6px;
+  background: var(--sz-overlay);
+  border: 1px solid var(--sz-line);
+  border-radius: var(--sz-radius);
+  box-shadow: var(--sz-shadow-2);
+}
+
+/* "일치하는 함수가 없습니다". */
+.sz-fx-empty {
+  padding: 8px 10px;
+  color: var(--sz-text-faint);
+  font-size: var(--sz-fs-sm);
+  white-space: nowrap;
+}
+
+/* One row: the name in the monospace token, its one-line Korean description
+   muted beside it and clipped, never wrapped — the row height stays uniform
+   however long the description is. */
+.sz-fx-item {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  width: 100%;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: var(--sz-radius-sm);
+  background: transparent;
+  color: var(--sz-text);
+  font-family: var(--sz-font-mono);
+  font-size: var(--sz-fs-sm);
+  font-weight: 600;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  transition: background-color .1s ease, color .1s ease;
+}
+/* :focus as well as :hover — the list moves focus with the arrow keys, and the
+   moved-to row has to look chosen even when no ring is drawn. */
+.sz-fx-item:hover,
+.sz-fx-item:focus { background: var(--sz-surface-3); }
+.sz-fx-item:focus-visible { outline-offset: -2px; }
+.sz-fx-item[aria-selected='true'],
+.sz-fx-item.sz-fx-item-active,
+.sz-fx-item.sz-tb-btn-active {
+  background: var(--sz-surface-3);
+  color: var(--sz-accent);
+}
+
+/* Positional guesses first: the first child is the name, anything after it is
+   description. The explicit classes below repeat them at equal specificity and
+   later in the file, so wherever the host names its parts, the names win. */
+.sz-fx-item > :first-child { flex: 0 0 auto; }
+.sz-fx-item > :not(:first-child) {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--sz-text-muted);
+  font-family: var(--sz-font);
+  font-weight: 400;
+}
+.sz-fx-item > .sz-fx-name,
+.sz-fx-name {
+  flex: 0 0 auto;
+  overflow: visible;
+  color: inherit;
+  font-family: var(--sz-font-mono);
+  font-weight: 600;
+}
+.sz-fx-item > .sz-fx-desc,
+.sz-fx-desc {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--sz-text-muted);
+  font-family: var(--sz-font);
+  font-weight: 400;
+}
+/* An icon keeps its own size whichever slot it lands in: the second selector
+   outranks the description rule above. */
+.sz-fx-item > svg,
+.sz-fx-item > svg:not(:first-child) {
+  flex: 0 0 auto;
+  width: 14px;
+  height: 14px;
+  fill: currentColor;
+}
+/* The search term, if the host marks it up. */
+.sz-fx-item mark {
+  background: transparent;
+  color: var(--sz-accent);
+  font-weight: 700;
+}
+
+/* --- 링크가 걸린 셀 (spec §23.4) ----------------------------------------- */
+/* An <a> INSIDE the cell — .sz-cell keeps every rule §8 gives it. A plain click
+   still selects the cell (grid.js follows the link only on Ctrl/Cmd+click or on
+   the glyph), so the text deliberately inherits the cell's own cursor and only
+   the glyph, which really is a click target, offers a pointer. */
+.sz-cell-link {
+  color: var(--sz-accent);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+  cursor: inherit;
+}
+/* :visited would otherwise repaint an attacker-supplied URL in the UA purple. */
+.sz-cell-link:visited { color: var(--sz-accent); }
+.sz-cell-link:hover { text-decoration-thickness: 2px; }
+.sz-cell-link:focus-visible {
+  outline: var(--sz-focus-w) solid var(--sz-accent);
+  outline-offset: -1px;
+}
+
+/* The trailing glyph. inline-block with line-height 1 and a sub-1em font size:
+   it can never grow the cell's line box, so it cannot push the cell text out of
+   its box. Being inline-block also keeps the link underline off it. */
+.sz-cell-link-glyph,
+.sz-link-glyph {
+  display: inline-block;
+  flex: 0 0 auto;
+  margin-left: 3px;
+  color: var(--sz-text-faint);
+  font-size: .78em;
+  line-height: 1;
+  vertical-align: baseline;
+  text-decoration: none;
+  cursor: pointer;
+}
+.sz-cell-link-glyph:hover,
+.sz-link-glyph:hover { color: var(--sz-accent); }
+.sz-cell-link svg,
+.sz-cell-link-glyph svg,
+.sz-link-glyph svg {
+  display: inline-block;
+  width: .8em;
+  height: .8em;
+  vertical-align: -.05em;
+  fill: currentColor;
+}
+
+/* Fallback glyph: drawn only when the anchor holds nothing but text AND nothing
+   follows it, so the stylesheet and the grid can never both draw one. Its own
+   rule, because :has() is not universal and the rules above must survive
+   without it. */
+.sz-cell-link:not(:has(*)):not(:has(~ *))::after {
+  content: '↗';
+  display: inline-block;
+  margin-left: 3px;
+  color: var(--sz-text-faint);
+  font-size: .78em;
+  line-height: 1;
+  vertical-align: baseline;
+}
+
+/* --- 서식 복사 armed: the grid cursor (spec §23.1) ------------------------ */
+/* Grid.setPainting(on) toggles .sz-painting. Whether the grid puts it on
+   .sz-grid or on the .sz-viewport inside it, both are covered: the bare class
+   handles the node itself, the descendant selectors handle the cells, which
+   would otherwise keep the cursor §8 gives them. `copy` is a built-in cursor —
+   an image cursor would mean an embedded asset and a colour literal, and this
+   stylesheet has neither. */
+.sz-painting,
+.sz-painting .sz-viewport,
+.sz-painting .sz-spacer,
+.sz-painting .sz-cell,
+.sz-painting .sz-colhead,
+.sz-painting .sz-rowhead,
+.sz-painting .sz-corner { cursor: copy; }
+
+/* A quiet accent frame so armed mode stays visible while the pointer is
+   anywhere else on the page. A pseudo-element with pointer-events:none: it
+   changes no box, intercepts no click, and exists only while the class does.
+   Split in two rules so the :has() form cannot invalidate the plain one. */
+.sz-grid.sz-painting::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  pointer-events: none;
+  box-shadow: inset 0 0 0 2px var(--sz-accent-soft-2);
+}
+.sz-grid:has(> .sz-painting)::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  pointer-events: none;
+  box-shadow: inset 0 0 0 2px var(--sz-accent-soft-2);
+}
+
+/* --- fallback chrome ----------------------------------------------------- */
+/* Only reached when the host omits .sz-tb-btn. :where() pins it at ZERO
+   specificity, so .sz-tb-btn, .sz-tb-btn-active and every state rule above
+   still win — it can dress a bare <button>, never repaint a classed one. */
+:where(button.sz-tb-painter, button.sz-tb-zoom, button.sz-tb-print,
+       button.sz-tb-link, button.sz-tb-fx, button.sz-tb-fx-caret) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-width: 30px;
+  height: 30px;
+  padding: 0 7px;
+  border: 0;
+  border-radius: var(--sz-radius-sm);
+  background: transparent;
+  color: var(--sz-text-muted);
+  font-size: var(--sz-fs);
+  line-height: 1;
+  transition: background-color .1s ease, color .1s ease;
+}
+:where(button.sz-tb-painter:hover, button.sz-tb-zoom:hover, button.sz-tb-print:hover,
+       button.sz-tb-link:hover, button.sz-tb-fx:hover, button.sz-tb-fx-caret:hover) {
+  background: var(--sz-surface-3);
+  color: var(--sz-text);
+}
+
+/* 인쇄 on the app itself. The real print path is print.js's hidden same-origin
+   iframe, which carries its own self-contained styles; this only covers a user
+   pressing Ctrl+P on the editor, so the chrome drops out instead of printing a
+   picture of itself. Every selector is a direct child of the editor's <body>,
+   so it can never reach into a print document that loads this stylesheet. */
+@media print {
+  body > .sz-header,
+  body > #sz-toolbar-root,
+  body > #sz-sheetbar-root,
+  body > .sz-statusbar,
+  body > #sz-toasts { display: none; }
+  body { height: auto; overflow: visible; }
+}
+
+/* A narrow window: the zoom label is the only one of the five that is text, so
+   it is the one that gives width back. */
+@media (max-width: 720px) {
+  .sz-tb-zoom { min-width: 46px; padding: 0 6px; }
+}
+
+/* §15 already flattens every transition for a reduced-motion reader; stated
+   locally too, the way §19, §20 and §21 do. */
+@media (prefers-reduced-motion: reduce) {
+  .sz-tb-painter,
+  .sz-tb-zoom,
+  .sz-tb-print,
+  .sz-tb-link,
+  .sz-tb-fx,
+  .sz-tb-fx-caret,
+  .sz-fx-item,
+  .sz-link-panel button { transition: none; }
+}
+
+/* ── §23 Data features, batch C (spec §24) ────────────────────────────────
+   정렬/필터 (a VIEW over the rows, never a rewrite of them), 차트 (inline SVG,
+   no library) and 댓글 (threads the server stamps).
+
+   THIS SECTION ADDS NO .sz-cell RULE that a plain cell can match — the promise
+   §21 and §22 make, for the same reason. The only cell-adjacent rules here draw
+   the comment corner, and each needs .sz-cell-comment to be present before it
+   matches anything. A sheet with no filter, no chart and no comment therefore
+   resolves exactly the §8 rules it resolved before this section existed, at the
+   same cost: nothing below is a universal or a descendant-of-.sz-cell selector.
+
+   Colours: the ten chart tokens live in §1, in BOTH the light block and the dark
+   one, so a chart follows the theme with no work in chart.js beyond reading
+   them. There is not a single colour literal below.
+
+   Layering — the rungs already in use (§8 cells 1, active 3, frozen 6, headers
+   8–11, peer cursors 12, fill handle 16, editor 20, context menu 200, popovers
+   240, documents panel 320, toasts 400):
+     - .sz-chart-layer sits at 14: above the cells and the peer cursors it
+       covers, below the fill handle and the in-cell editor, which must stay
+       reachable over a chart. It lives inside the scrolling pane, so the frozen
+       bands and the header layers — separate subtrees painted after it — keep
+       covering it whatever it does with z-index.
+     - .sz-filter-panel is a popover on the shared 240 rung, wearing the same
+       chrome as §21's .sz-tb-drop.
+     - the two side panels sit at 300: over the grid and its popovers, under the
+       documents panel and the toasts.
+
+   Geometry contract (grid.js, rules 1 and 2): every element the grid or the
+   chart layer positions gets its box written inline. The `position` / `inset`
+   declarations below are FALLBACKS that put an unpositioned node in the right
+   place; an inline value always outranks them. */
+
+/* --- shared: the three toolbar triggers ---------------------------------- */
+.sz-tb-filter,
+.sz-tb-chart,
+.sz-tb-comment {
+  flex: 0 0 auto;
+  font-weight: 500;
+}
+
+/* Open state (the filter popover or a side panel is showing). Two-token
+   selectors so they outrank .sz-tb-btn-active, exactly as §20–§22 do. */
+.sz-tb-filter[aria-expanded='true'],
+.sz-tb-chart[aria-expanded='true'],
+.sz-tb-comment[aria-expanded='true'],
+.sz-tb-chart[aria-pressed='true'],
+.sz-tb-comment[aria-pressed='true'] {
+  background: var(--sz-accent-soft);
+  color: var(--sz-accent);
+}
+.sz-tb-filter[aria-expanded='true']:hover,
+.sz-tb-chart[aria-expanded='true']:hover,
+.sz-tb-comment[aria-expanded='true']:hover,
+.sz-tb-chart[aria-pressed='true']:hover,
+.sz-tb-comment[aria-pressed='true']:hover {
+  background: var(--sz-accent-soft-2);
+  color: var(--sz-accent);
+}
+
+/* 필터 켜짐 — the sheet is showing a filtered view. This one outlives every
+   click and changes what the user is looking at, so it gets more than the soft
+   wash a style toggle gets: a solid accent fill, the same weight §22 gives the
+   sticky painter, which is the other state that stays on by itself. Declared
+   after the open-state block and at matching specificity, so a button that is
+   both ON and open shows this. */
+.sz-tb-filter[aria-pressed='true'],
+.sz-tb-filter[data-on='true'],
+.sz-tb-filter[data-state='on'],
+.sz-tb-filter.sz-tb-filter-on,
+.sz-tb-filter.sz-tb-btn-active {
+  background: var(--sz-accent);
+  color: var(--sz-on-accent);
+}
+.sz-tb-filter[aria-pressed='true']:hover,
+.sz-tb-filter[data-on='true']:hover,
+.sz-tb-filter[data-state='on']:hover,
+.sz-tb-filter.sz-tb-filter-on:hover,
+.sz-tb-filter.sz-tb-btn-active:hover {
+  background: var(--sz-accent-hover);
+  color: var(--sz-on-accent);
+}
+
+/* Fallbacks for a host that ships a button with nothing inside it: a readable
+   Korean control instead of a blank square (§20's :empty::after pattern). */
+.sz-tb-filter:empty::after,
+.sz-tb-chart:empty::after,
+.sz-tb-comment:empty::after { font-size: var(--sz-fs-sm); line-height: 1; }
+.sz-tb-filter:empty::after  { content: '필터'; }
+.sz-tb-chart:empty::after   { content: '차트'; }
+.sz-tb-comment:empty::after { content: '댓글'; }
+
+/* Only reached when the host omits .sz-tb-btn. :where() pins it at ZERO
+   specificity, so every state rule above still wins — it can dress a bare
+   <button>, never repaint a classed one. */
+:where(button.sz-tb-filter, button.sz-tb-chart, button.sz-tb-comment) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-width: 30px;
+  height: 30px;
+  padding: 0 7px;
+  border: 0;
+  border-radius: var(--sz-radius-sm);
+  background: transparent;
+  color: var(--sz-text-muted);
+  font-size: var(--sz-fs);
+  line-height: 1;
+  transition: background-color .1s ease, color .1s ease;
+}
+:where(button.sz-tb-filter:hover, button.sz-tb-chart:hover, button.sz-tb-comment:hover) {
+  background: var(--sz-surface-3);
+  color: var(--sz-text);
+}
+
+/* --- the filter glyph in a header cell ----------------------------------- */
+/* .sz-colhead is `display: grid` with its letter as a bare text node, so an
+   in-flow child would become a second grid item and push that letter off
+   centre. Absolute positioning is what keeps the header text EXACTLY where it
+   was: the glyph leaves the grid entirely, adds no track, and changes no
+   padding. .sz-colhead is already position:absolute, so it is the containing
+   block with no extra rule.
+   right: 6px clears the 6px .sz-colhead-grip that owns the trailing edge — the
+   grip is the column-resize target and must stay hittable. */
+.sz-filter-btn {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 15px;
+  height: 15px;
+  padding: 0;
+  border: 0;
+  border-radius: 3px;
+  background: var(--sz-surface-4);
+  color: var(--sz-text-muted);
+  font-size: 9px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background-color .1s ease, color .1s ease;
+}
+.sz-filter-btn:hover { background: var(--sz-accent-soft-2); color: var(--sz-accent); }
+.sz-filter-btn:focus-visible { outline-offset: 1px; }
+.sz-filter-btn svg { display: block; width: 9px; height: 9px; fill: currentColor; }
+.sz-filter-btn:empty::after { content: '▾'; }
+
+/* This column is actually filtering or sorting something. */
+.sz-filter-btn[aria-pressed='true'],
+.sz-filter-btn[data-active='true'],
+.sz-filter-btn.sz-filter-btn-on {
+  background: var(--sz-accent);
+  color: var(--sz-on-accent);
+}
+.sz-filter-btn[aria-expanded='true'] {
+  background: var(--sz-accent);
+  color: var(--sz-on-accent);
+}
+
+/* --- the filter popover --------------------------------------------------- */
+/* Same floating chrome and the same 240 rung as §21's .sz-tb-drop. `position`
+   is a fallback only — the host parents its popovers to <body> with an inline
+   position:fixed plus left/top, which overrides it; the fallback still floats
+   the panel out of whatever it was parented to.
+   The PANEL is a flex column that never scrolls; the list inside it is the one
+   scroller, which is what keeps 오름차순 정렬, the search field and the
+   전체 선택 row pinned while the values move under them. */
+.sz-filter-panel {
+  position: absolute;
+  z-index: 240;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: min(248px, calc(100vw - 12px));
+  max-height: min(72vh, 420px);
+  padding: 6px;
+  background: var(--sz-overlay);
+  border: 1px solid var(--sz-line);
+  border-radius: var(--sz-radius);
+  box-shadow: var(--sz-shadow-2);
+  overflow: hidden;
+  overscroll-behavior: contain;
+  user-select: none;
+}
+.sz-filter-panel[hidden] { display: none; }
+
+/* Base chrome for every button in the panel at ZERO specificity: a host that
+   also puts .sz-tb-drop-item or .sz-btn on a row keeps that look untouched.
+   Borderless fills, so none of them can be mistaken for a native control. */
+:where(.sz-filter-panel button) {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 10px;
+  border: 0;
+  border-radius: var(--sz-radius-sm);
+  background: transparent;
+  color: var(--sz-text);
+  font-family: var(--sz-font);
+  font-size: var(--sz-fs);
+  font-weight: 400;
+  text-align: left;
+  white-space: nowrap;
+  transition: background-color .1s ease, color .1s ease;
+}
+:where(.sz-filter-panel button:hover, .sz-filter-panel button:focus) {
+  background: var(--sz-surface-3);
+}
+.sz-filter-panel button:focus-visible { outline-offset: -2px; }
+.sz-filter-panel button[disabled],
+.sz-filter-panel button[aria-disabled='true'] { color: var(--sz-text-faint); pointer-events: none; }
+.sz-filter-panel button svg { flex: 0 0 auto; width: 15px; height: 15px; fill: currentColor; }
+.sz-filter-panel hr { flex: 0 0 auto; margin: 5px 4px; }
+
+/* 오름차순 정렬 / 내림차순 정렬. The column already sorted this way reads accent,
+   the same "current value" language the §21 menus use. */
+.sz-filter-sort[aria-checked='true'],
+.sz-filter-sort.sz-tb-btn-active,
+.sz-filter-panel [data-dir][aria-checked='true'] { color: var(--sz-accent); font-weight: 600; }
+
+/* Captions (필터 기준, 값). */
+.sz-filter-panel > label,
+.sz-filter-title,
+.sz-filter-panel .sz-tb-drop-title {
+  flex: 0 0 auto;
+  margin: 2px 4px 4px;
+  color: var(--sz-text-faint);
+  font-size: var(--sz-fs-xs);
+  font-weight: 600;
+  letter-spacing: .02em;
+}
+
+/* The search field. Pinned: flex: 0 0 auto keeps it out of the scroller. */
+.sz-filter-search {
+  flex: 0 0 auto;
+  display: block;
+  width: 100%;
+  margin: 2px 0 6px;
+}
+input.sz-filter-search,
+.sz-filter-search input {
+  width: 100%;
+  height: 28px;
+  padding: 0 8px;
+  border: 1px solid var(--sz-line-strong);
+  border-radius: var(--sz-radius-sm);
+  background: var(--sz-surface);
+  color: var(--sz-text);
+  font-family: var(--sz-font);
+  font-size: var(--sz-fs-sm);
+}
+input.sz-filter-search::placeholder,
+.sz-filter-search input::placeholder { color: var(--sz-text-faint); }
+input.sz-filter-search:focus-visible,
+.sz-filter-search input:focus-visible { outline-offset: -1px; }
+
+/* 전체 선택 / 선택 해제 — a compact pair, not two full-width menu rows. */
+.sz-filter-actions,
+.sz-filter-toggles {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 4px;
+}
+.sz-filter-actions button,
+.sz-filter-toggles button {
+  width: auto;
+  padding: 4px 8px;
+  color: var(--sz-accent);
+  font-size: var(--sz-fs-sm);
+  font-weight: 600;
+}
+
+/* THE LIST: the only scroller in the panel, with a fixed cap so a column of
+   3000 distinct values still opens a panel the size of a menu. */
+.sz-filter-list {
+  flex: 1 1 auto;
+  display: block;
+  min-height: 0;
+  max-height: min(40vh, 216px);
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--sz-scroll-thumb) var(--sz-scroll-track);
+  list-style: none;
+}
+.sz-filter-list::-webkit-scrollbar { width: 10px; }
+.sz-filter-list::-webkit-scrollbar-track { background: var(--sz-scroll-track); }
+.sz-filter-list::-webkit-scrollbar-thumb {
+  background: var(--sz-scroll-thumb);
+  border: 3px solid var(--sz-overlay);
+  border-radius: 999px;
+}
+.sz-filter-list::-webkit-scrollbar-thumb:hover { background: var(--sz-scroll-thumb-h); }
+
+/* One value row: a checkbox, the display value, and its count if the host
+   renders one. The value is the part that gives width back, so it is the part
+   that ellipsises — the checkbox and the count never shrink. */
+.sz-filter-list label,
+.sz-filter-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 5px 8px;
+  border-radius: var(--sz-radius-sm);
+  color: var(--sz-text);
+  font-size: var(--sz-fs-sm);
+  font-weight: 400;
+  text-align: left;
+  cursor: pointer;
+}
+.sz-filter-list label:hover,
+.sz-filter-item:hover { background: var(--sz-surface-3); }
+/* The label is not focusable — its checkbox is — so keyboard arrival is shown on
+   the row, and the ring itself stays on the control that actually has focus. */
+.sz-filter-list label:focus-within { background: var(--sz-surface-3); }
+.sz-filter-item:focus-visible { outline-offset: -2px; }
+.sz-filter-list input[type='checkbox'],
+.sz-filter-item input[type='checkbox'] {
+  flex: 0 0 auto;
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  accent-color: var(--sz-accent);
+  cursor: pointer;
+}
+/* The value text: whatever slot it lands in, it is the flexible one. */
+.sz-filter-list label > span,
+.sz-filter-item > span,
+.sz-filter-value {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.sz-filter-count,
+.sz-filter-list label > .sz-filter-count {
+  flex: 0 0 auto;
+  color: var(--sz-text-faint);
+  font-size: var(--sz-fs-xs);
+  font-variant-numeric: tabular-nums;
+}
+/* (빈 값) reads as a label, not as data. */
+.sz-filter-value-blank,
+.sz-filter-item[data-blank='true'] > span { color: var(--sz-text-faint); font-style: italic; }
+
+/* "검색 결과가 없습니다" inside the list. */
+.sz-filter-empty {
+  padding: 10px;
+  color: var(--sz-text-faint);
+  font-size: var(--sz-fs-sm);
+  text-align: center;
+}
+
+/* The footer pair (확인 / 취소), pushed to the right edge of the panel. */
+.sz-filter-foot {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--sz-line);
+}
+.sz-filter-foot button {
+  width: auto;
+  justify-content: center;
+  min-width: 56px;
+  padding: 0 12px;
+  height: 28px;
+  background: var(--sz-surface-3);
+  font-size: var(--sz-fs-sm);
+  font-weight: 600;
+}
+.sz-filter-foot button:hover { background: var(--sz-surface-4); }
+.sz-filter-foot button.sz-filter-apply,
+.sz-filter-foot [data-cmd='filter:apply'] {
+  background: var(--sz-accent);
+  color: var(--sz-on-accent);
+}
+.sz-filter-foot button.sz-filter-apply:hover,
+.sz-filter-foot [data-cmd='filter:apply']:hover {
+  background: var(--sz-accent-hover);
+  color: var(--sz-on-accent);
+}
+
+/* --- 차트: the overlay layer --------------------------------------------- */
+/* The layer covers the whole sheet so charts can be placed anywhere in it, and
+   it is therefore lying over every cell underneath. pointer-events:none is what
+   keeps that from costing anything: clicks, drags, the fill handle and the
+   context menu all pass straight through to the cells, and only the charts
+   themselves — which opt back in below — ever receive a pointer. A sheet with no
+   charts has an empty, untouchable box over it and behaves exactly as before. */
+.sz-chart-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 14;
+  pointer-events: none;
+}
+/* Anything the layer holds is inert until it says otherwise. Stated on the
+   layer's children as well as on the layer so a wrapper node cannot re-enable
+   the whole rectangle by accident. */
+.sz-chart-layer > * { pointer-events: none; }
+.sz-chart-layer .sz-chart { pointer-events: auto; }
+
+/* One chart. Opaque, because it covers cells; the box is written inline from
+   the chart's x/y/w/h (sheet coordinates), so only the skin is set here.
+   touch-action:none lets a finger drag it instead of scrolling the sheet under
+   it — the drag is exactly what the gesture is for once it starts on a chart. */
+.sz-chart {
+  position: absolute;
+  overflow: hidden;
+  background: var(--sz-surface);
+  border: 1px solid var(--sz-line);
+  border-radius: var(--sz-radius-sm);
+  box-shadow: var(--sz-shadow-1);
+  color: var(--sz-text);
+  cursor: move;
+  touch-action: none;
+  user-select: none;
+}
+.sz-chart:hover { border-color: var(--sz-line-strong); }
+/* Picked up / being dragged. */
+.sz-chart[aria-selected='true'],
+.sz-chart[data-selected='true'],
+.sz-chart.sz-chart-selected {
+  border-color: var(--sz-accent);
+  box-shadow: var(--sz-shadow-2);
+}
+.sz-chart:focus-visible {
+  outline: var(--sz-focus-w) solid var(--sz-accent);
+  outline-offset: 1px;
+}
+.sz-chart[data-dragging='true'],
+.sz-chart.sz-chart-dragging { box-shadow: var(--sz-shadow-2); opacity: .92; }
+
+/* The SVG fills the box. width/height here beat the SVG's own width/height
+   PRESENTATION attributes, which is what makes a resize repaint correctly even
+   in the frame before chart.js redraws at the new size. */
+.sz-chart > svg,
+.sz-chart svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  font-family: var(--sz-font);
+  font-size: var(--sz-fs-sm);
+}
+/* A text node with no fill of its own follows the theme. `:not([fill])` is the
+   whole point: a series label that chart.js coloured from --sz-chart-N carries
+   the attribute and is left completely alone. */
+.sz-chart svg text:not([fill]) { fill: var(--sz-text); }
+.sz-chart svg text { paint-order: stroke; }
+
+/* The resize grip, in the bottom-right corner of the chart's own box. Inset 3px
+   so the 6px corner radius cannot bite a piece out of it, and built like §9's
+   fill handle: an accent square inside a surface-coloured ring, which reads on
+   a chart of any colour. It is a real element, so it keeps the pointer events
+   the layer switched off. */
+.sz-chart-handle {
+  position: absolute;
+  right: 3px;
+  bottom: 3px;
+  z-index: 2;
+  width: 12px;
+  height: 12px;
+  padding: 0;
+  border: 2px solid var(--sz-surface);
+  border-radius: 3px;
+  background: var(--sz-accent);
+  cursor: nwse-resize;
+  touch-action: none;
+  pointer-events: auto;
+  opacity: 0;
+  transition: opacity .12s ease;
+}
+/* Visible on approach or while the chart is picked up — always hittable, so the
+   grab never depends on the fade having finished. */
+.sz-chart:hover > .sz-chart-handle,
+.sz-chart:focus-within > .sz-chart-handle,
+.sz-chart[aria-selected='true'] > .sz-chart-handle,
+.sz-chart[data-selected='true'] > .sz-chart-handle,
+.sz-chart.sz-chart-selected > .sz-chart-handle,
+.sz-chart-handle:focus-visible,
+.sz-chart-handle:hover { opacity: 1; }
+.sz-chart-handle:focus-visible { outline-offset: 1px; }
+
+/* A chart the host renders outside the layer (a preview inside the side panel,
+   say) must not float over the page: no layer means no positioning context, so
+   the fallback puts it back in flow. */
+.sz-chart-preview,
+.sz-chart-panel .sz-chart {
+  position: relative;
+  cursor: default;
+  pointer-events: auto;
+}
+
+/* --- the two side panels -------------------------------------------------- */
+/* 차트 설정 and 댓글. They are FIXED, not flex items: <body> is the app's flex
+   column (§3), so a panel dropped into it in flow would take width away from
+   the grid and re-lay the whole sheet out every time it opened. Out of flow,
+   opening one costs the grid nothing — it neither resizes nor reflows.
+   The offsets are the shell's own metric tokens, so the panel spans exactly the
+   band between the formula bar and the sheet tab strip, and `width: min(...)`
+   keeps it inside a narrow window instead of hanging off the edge. */
+.sz-chart-panel,
+.sz-comment-panel {
+  position: fixed;
+  right: 0;
+  top: calc(var(--sz-header-h) + var(--sz-toolbar-h) + var(--sz-fbar-h));
+  bottom: calc(var(--sz-sheetbar-h) + var(--sz-statusbar-h) + var(--sz-grow-h));
+  z-index: 300;
+  display: flex;
+  flex-direction: column;
+  width: min(320px, calc(100vw - 24px));
+  max-width: 100vw;
+  background: var(--sz-surface);
+  border-left: 1px solid var(--sz-line);
+  box-shadow: var(--sz-shadow-2);
+  color: var(--sz-text);
+  overflow: hidden;
+  overscroll-behavior: contain;
+}
+.sz-chart-panel[hidden],
+.sz-comment-panel[hidden] { display: none; }
+
+/* Parented INSIDE the grid instead of into <body>: .sz-grid carries
+   `contain: layout paint`, which makes it the containing block for a fixed
+   descendant and clips it, so the shell offsets above would be measured from
+   the wrong box. Absolute against that same box is the right answer there. */
+.sz-grid .sz-chart-panel,
+.sz-grid .sz-comment-panel {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+}
+
+/* Head: title on the left, actions and the close button on the right. It never
+   scrolls — flex: 0 0 auto — so the title stays put while the body moves. */
+.sz-chart-panel > header,
+.sz-comment-panel > header,
+.sz-panel-head {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--sz-line);
+  background: var(--sz-surface-2);
+}
+.sz-panel-title,
+.sz-chart-panel > header > :first-child,
+.sz-comment-panel > header > :first-child {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: var(--sz-fs);
+  font-weight: 700;
+}
+.sz-panel-close {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--sz-radius-sm);
+  background: transparent;
+  color: var(--sz-text-muted);
+  font-size: var(--sz-fs);
+  line-height: 1;
+  transition: background-color .1s ease, color .1s ease;
+}
+.sz-panel-close:hover { background: var(--sz-surface-4); color: var(--sz-text); }
+.sz-panel-close:focus-visible { outline-offset: -2px; }
+.sz-panel-close:empty::after { content: '✕'; }
+.sz-panel-close svg { display: block; width: 14px; height: 14px; fill: currentColor; }
+
+/* Body: the one scroller in each panel. min-height:0 is what lets it actually
+   shrink inside the flex column instead of pushing the foot off the bottom. */
+.sz-panel-body,
+.sz-chart-fields,
+.sz-comment-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 10px 12px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--sz-scroll-thumb) var(--sz-scroll-track);
+}
+.sz-panel-body::-webkit-scrollbar,
+.sz-chart-fields::-webkit-scrollbar,
+.sz-comment-list::-webkit-scrollbar { width: 10px; }
+.sz-panel-body::-webkit-scrollbar-track,
+.sz-chart-fields::-webkit-scrollbar-track,
+.sz-comment-list::-webkit-scrollbar-track { background: var(--sz-scroll-track); }
+.sz-panel-body::-webkit-scrollbar-thumb,
+.sz-chart-fields::-webkit-scrollbar-thumb,
+.sz-comment-list::-webkit-scrollbar-thumb {
+  background: var(--sz-scroll-thumb);
+  border: 3px solid var(--sz-surface);
+  border-radius: 999px;
+}
+.sz-panel-body::-webkit-scrollbar-thumb:hover,
+.sz-chart-fields::-webkit-scrollbar-thumb:hover,
+.sz-comment-list::-webkit-scrollbar-thumb:hover { background: var(--sz-scroll-thumb-h); }
+
+/* A foot pinned under the body (the 댓글 composer, the chart panel's actions). */
+.sz-panel-foot {
+  flex: 0 0 auto;
+  padding: 10px 12px;
+  border-top: 1px solid var(--sz-line);
+  background: var(--sz-surface-2);
+}
+
+/* --- 차트 설정: the form rows ---------------------------------------------- */
+/* Stacked label-over-control rows: a Korean caption and a select never fit on
+   one 320px line without one of them being clipped. */
+.sz-chart-panel label,
+.sz-chart-field {
+  display: block;
+  margin: 0 0 10px;
+  color: var(--sz-text-muted);
+  font-size: var(--sz-fs-xs);
+  font-weight: 600;
+  letter-spacing: .02em;
+}
+.sz-chart-panel select,
+.sz-chart-panel input[type='text'],
+.sz-chart-panel input:not([type]) {
+  display: block;
+  width: 100%;
+  height: 30px;
+  margin-top: 4px;
+  padding: 0 8px;
+  border: 1px solid var(--sz-line-strong);
+  border-radius: var(--sz-radius-sm);
+  background: var(--sz-surface);
+  color: var(--sz-text);
+  font-family: var(--sz-font);
+  font-size: var(--sz-fs-sm);
+  font-weight: 400;
+}
+/* The range is machine text, so it reads in the monospace token. */
+.sz-chart-panel .sz-chart-range,
+.sz-chart-panel input[data-field='range'] { font-family: var(--sz-font-mono); }
+.sz-chart-panel input::placeholder { color: var(--sz-text-faint); }
+.sz-chart-panel select:focus-visible,
+.sz-chart-panel input:focus-visible { outline-offset: -1px; }
+
+/* The header toggles: a checkbox sharing its row with the caption instead of
+   sitting under it. Its own rule, because :has() is not universal and an
+   unsupported selector must not take the stacked rows above down with it. */
+.sz-chart-panel label:has(> input[type='checkbox']),
+.sz-chart-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 8px;
+  color: var(--sz-text);
+  font-size: var(--sz-fs-sm);
+  font-weight: 400;
+  cursor: pointer;
+}
+.sz-chart-panel input[type='checkbox'] {
+  flex: 0 0 auto;
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  accent-color: var(--sz-accent);
+  cursor: pointer;
+}
+
+/* The type picker, when the host renders it as a row of buttons rather than a
+   <select>. */
+.sz-chart-types {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
+  gap: 6px;
+  margin: 4px 0 12px;
+}
+.sz-chart-types button,
+.sz-chart-type {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 8px 4px;
+  border: 1px solid var(--sz-line);
+  border-radius: var(--sz-radius-sm);
+  background: var(--sz-surface-2);
+  color: var(--sz-text-muted);
+  font-size: var(--sz-fs-xs);
+  font-weight: 500;
+  transition: background-color .1s ease, border-color .1s ease, color .1s ease;
+}
+.sz-chart-types button:hover,
+.sz-chart-type:hover { background: var(--sz-surface-3); color: var(--sz-text); }
+.sz-chart-types button[aria-pressed='true'],
+.sz-chart-types button[aria-checked='true'],
+.sz-chart-type.sz-tb-btn-active {
+  border-color: var(--sz-accent);
+  background: var(--sz-accent-soft);
+  color: var(--sz-accent);
+}
+.sz-chart-types button:focus-visible,
+.sz-chart-type:focus-visible { outline-offset: -2px; }
+.sz-chart-types svg { width: 20px; height: 20px; fill: currentColor; }
+
+/* Panel buttons. Zero specificity, so a host that also puts .sz-btn on them
+   keeps the §6 look; borderless fills, so none of them reads as a native
+   control. */
+:where(.sz-chart-panel .sz-panel-foot button, .sz-comment-panel .sz-panel-foot button) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 56px;
+  height: 28px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: var(--sz-radius-sm);
+  background: var(--sz-surface-3);
+  color: var(--sz-text);
+  font-size: var(--sz-fs-sm);
+  font-weight: 600;
+  transition: background-color .1s ease, color .1s ease;
+}
+:where(.sz-chart-panel .sz-panel-foot button:hover,
+       .sz-comment-panel .sz-panel-foot button:hover) { background: var(--sz-surface-4); }
+
+/* --- 댓글: the corner triangle on a commented cell ------------------------ */
+/* Two shapes are supported and they cannot collide:
+     - an ELEMENT inside the cell (`.sz-cell > .sz-cell-comment`), which is what
+       the spec's "clicking it opens the thread" needs — a pseudo-element has no
+       hit target of its own;
+     - the class on the CELL itself, drawn with ::after for a host that only
+       marks the cell.
+   Neither selector can match a cell that carries no comment, which is the whole
+   promise of this section: an ordinary cell resolves the same §8 rules it did
+   before, with no extra work for the renderer.
+
+   Why it never touches the text: .sz-cell is `display: grid`, so an in-flow
+   child would add a track and shove the value off centre. Absolute positioning
+   takes the marker out of the grid entirely — no track, no padding change, no
+   reflow. And it is 7px tall at the very top edge, while at the default 26px
+   row the text's cap height starts ~6.5px down and its BASELINE sits ~17px
+   down, so the triangle cannot reach the baseline of the cell text. It stays
+   clear of the 5px left padding where left-aligned text begins, too. */
+.sz-cell > .sz-cell-comment {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 2;
+  width: 0;
+  height: 0;
+  padding: 0;
+  border: 0;
+  border-top: 7px solid var(--sz-warn);
+  border-left: 7px solid transparent;
+  border-radius: 0;
+  background: transparent;
+  font-size: 0;
+  line-height: 0;
+  cursor: pointer;
+}
+.sz-cell > .sz-cell-comment:hover { border-top-color: var(--sz-accent); }
+.sz-cell > .sz-cell-comment:focus-visible { outline-offset: 1px; }
+/* A resolved thread stays marked, quietly. */
+.sz-cell > .sz-cell-comment[data-resolved='true'],
+.sz-cell > .sz-cell-comment.sz-cell-comment-resolved { border-top-color: var(--sz-text-faint); }
+
+/* The marker-class form. Identical geometry, no hit target. */
+.sz-cell.sz-cell-comment::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 2;
+  width: 0;
+  height: 0;
+  border-top: 7px solid var(--sz-warn);
+  border-left: 7px solid transparent;
+  pointer-events: none;
+}
+.sz-cell.sz-cell-comment[data-resolved='true']::after { border-top-color: var(--sz-text-faint); }
+
+/* --- 댓글: threads in the side panel -------------------------------------- */
+/* One thread is a card; the messages inside it are rows. The card owns the
+   spacing so a thread with one message and a thread with ten read the same. */
+.sz-comment-thread {
+  margin: 0 0 10px;
+  padding: 10px;
+  border: 1px solid var(--sz-line);
+  border-radius: var(--sz-radius-sm);
+  background: var(--sz-surface-2);
+  font-size: var(--sz-fs-sm);
+}
+.sz-comment-thread:last-child { margin-bottom: 0; }
+.sz-comment-thread:focus-visible { outline-offset: 2px; }
+/* The thread on the cell the user is standing on. */
+.sz-comment-thread[aria-current='true'],
+.sz-comment-thread[data-active='true'],
+.sz-comment-thread.sz-comment-thread-active {
+  border-color: var(--sz-accent);
+  box-shadow: inset 3px 0 0 var(--sz-accent);
+}
+/* 해결됨: kept in the list, visibly settled rather than hidden. */
+.sz-comment-thread[data-resolved='true'],
+.sz-comment-thread.sz-comment-thread-resolved {
+  border-style: dashed;
+  background: transparent;
+  color: var(--sz-text-muted);
+}
+
+/* The thread head: the cell it belongs to, then its actions. */
+.sz-comment-thread > header,
+.sz-comment-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 2px;
+}
+/* The A1 key is machine text and it is also the thread's identity, so it leads
+   the card in the monospace token. */
+.sz-comment-cell {
+  flex: 0 0 auto;
+  color: var(--sz-accent);
+  font-family: var(--sz-font-mono);
+  font-size: var(--sz-fs-sm);
+  font-weight: 700;
+}
+.sz-comment-badge {
+  flex: 0 0 auto;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--sz-surface-4);
+  color: var(--sz-text-muted);
+  font-size: var(--sz-fs-xs);
+  font-weight: 600;
+}
+.sz-comment-thread[data-resolved='true'] .sz-comment-badge,
+.sz-comment-thread.sz-comment-thread-resolved .sz-comment-badge {
+  background: var(--sz-accent-soft);
+  color: var(--sz-accent);
+}
+
+/* One message. A two-column grid: author and time share the first row, the text
+   spans both columns underneath — which is what lets a long author name and a
+   long body wrap independently instead of fighting for the same line. */
+.sz-comment-msg {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 2px 8px;
+  margin: 0;
+  padding: 0;
+}
+.sz-comment-msg + .sz-comment-msg {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--sz-line);
+}
+.sz-comment-msg > * { min-width: 0; margin: 0; }
+/* Positional guesses first — author, time, then everything else is body text.
+   The named classes below repeat them at equal specificity and later in the
+   file, so wherever the host names its parts, the names win. */
+.sz-comment-msg > :first-child {
+  grid-column: 1;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--sz-text);
+  font-weight: 600;
+}
+.sz-comment-msg > :nth-child(2) {
+  grid-column: 2;
+  justify-self: end;
+  color: var(--sz-text-faint);
+  font-size: var(--sz-fs-xs);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.sz-comment-msg > :nth-child(n + 3) { grid-column: 1 / -1; }
+
+/* The author is server-stamped, never client text; it is still shown as a
+   single ellipsised line so a very long display name cannot push the time off
+   the card. */
+.sz-comment-author {
+  grid-column: 1;
+  justify-self: start;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--sz-text);
+  font-weight: 600;
+}
+/* 방금 전 / 3분 전 / 어제. */
+.sz-comment-time {
+  grid-column: 2;
+  justify-self: end;
+  color: var(--sz-text-faint);
+  font-size: var(--sz-fs-xs);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+/* The body. pre-wrap keeps the line breaks the author typed; overflow-wrap
+   breaks a 300-character unbroken URL rather than letting it widen the panel
+   and start a horizontal scrollbar. */
+.sz-comment-text {
+  grid-column: 1 / -1;
+  color: var(--sz-text);
+  font-size: var(--sz-fs-sm);
+  line-height: 1.55;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+.sz-comment-thread[data-resolved='true'] .sz-comment-text,
+.sz-comment-thread.sz-comment-thread-resolved .sz-comment-text { color: var(--sz-text-muted); }
+
+/* 해결 / 다시 열기 / 삭제 — quiet text buttons on the card, pushed to its
+   trailing edge. */
+.sz-comment-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  flex: 0 0 auto;
+  margin-left: auto;
+}
+.sz-comment-actions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 24px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: var(--sz-radius-sm);
+  background: transparent;
+  color: var(--sz-text-muted);
+  font-size: var(--sz-fs-xs);
+  font-weight: 600;
+  white-space: nowrap;
+  transition: background-color .1s ease, color .1s ease;
+}
+.sz-comment-actions button:hover { background: var(--sz-surface-4); color: var(--sz-text); }
+.sz-comment-actions button:focus-visible { outline-offset: -2px; }
+.sz-comment-actions button[disabled] { opacity: .4; pointer-events: none; }
+.sz-comment-actions button.sz-danger,
+.sz-comment-actions [data-op='delete'] { color: var(--sz-danger); }
+.sz-comment-actions button.sz-danger:hover,
+.sz-comment-actions [data-op='delete']:hover { background: var(--sz-surface-3); color: var(--sz-danger); }
+.sz-comment-actions svg { display: block; width: 14px; height: 14px; fill: currentColor; }
+
+/* The composer. A textarea, because a comment is prose and Enter has to be able
+   to make a paragraph; the panel foot keeps it pinned under the scrolling list.
+   MAX_COMMENT_LEN is enforced in the model, not here. */
+.sz-comment-input,
+.sz-comment-panel textarea {
+  display: block;
+  width: 100%;
+  min-height: 62px;
+  max-height: 40vh;
+  padding: 8px;
+  border: 1px solid var(--sz-line-strong);
+  border-radius: var(--sz-radius-sm);
+  background: var(--sz-surface);
+  color: var(--sz-text);
+  font-family: var(--sz-font);
+  font-size: var(--sz-fs-sm);
+  line-height: 1.5;
+  resize: vertical;
+  overflow-wrap: anywhere;
+}
+.sz-comment-input::placeholder,
+.sz-comment-panel textarea::placeholder { color: var(--sz-text-faint); }
+.sz-comment-input:focus-visible,
+.sz-comment-panel textarea:focus-visible { outline-offset: -1px; }
+
+/* The composer's own action row (댓글, 취소). */
+.sz-comment-panel .sz-panel-foot .sz-comment-actions { margin-top: 8px; }
+.sz-comment-panel .sz-panel-foot .sz-comment-actions button {
+  height: 28px;
+  min-width: 56px;
+  padding: 0 12px;
+  background: var(--sz-surface-3);
+  color: var(--sz-text);
+  font-size: var(--sz-fs-sm);
+}
+.sz-comment-panel .sz-panel-foot .sz-comment-actions button:hover { background: var(--sz-surface-4); }
+.sz-comment-panel .sz-panel-foot .sz-comment-actions .sz-comment-submit,
+.sz-comment-panel .sz-panel-foot [data-op='add'],
+.sz-comment-panel .sz-panel-foot [data-op='reply'] {
+  background: var(--sz-accent);
+  color: var(--sz-on-accent);
+}
+.sz-comment-panel .sz-panel-foot .sz-comment-submit:hover,
+.sz-comment-panel .sz-panel-foot [data-op='add']:hover,
+.sz-comment-panel .sz-panel-foot [data-op='reply']:hover {
+  background: var(--sz-accent-hover);
+  color: var(--sz-on-accent);
+}
+
+/* "아직 댓글이 없습니다". */
+.sz-comment-empty,
+.sz-chart-empty {
+  padding: 24px 12px;
+  color: var(--sz-text-faint);
+  font-size: var(--sz-fs-sm);
+  text-align: center;
+}
+
+/* --- narrow windows ------------------------------------------------------- */
+/* The side panels overlay the grid rather than sit beside it, so on a small
+   screen they may as well take the width — minus a gutter, which is what keeps
+   the sheet visible behind them and the panel inside the viewport. */
+@media (max-width: 720px) {
+  .sz-chart-panel,
+  .sz-comment-panel { width: min(320px, calc(100vw - 12px)); }
+  .sz-filter-panel { width: min(248px, calc(100vw - 8px)); }
+}
+
+/* --- print ---------------------------------------------------------------- */
+/* 인쇄 builds its own document (spec §23.3); this only covers a user pressing
+   Ctrl+P on the editor, where a floating panel would print as a grey slab over
+   the sheet. Scoped to <body> children, like §22's block, so it can never reach
+   into a print document that loads this stylesheet. */
+@media print {
+  body > .sz-filter-panel,
+  body > .sz-chart-panel,
+  body > .sz-comment-panel { display: none; }
+  .sz-chart-handle { display: none; }
+}
+
+/* --- motion preferences --------------------------------------------------- */
+/* §15 already flattens every transition for a reduced-motion reader; stated
+   locally too, the way §19–§22 do. The chart handle keeps its fade-in as an
+   instant switch, so it is still there the moment the pointer arrives. */
+@media (prefers-reduced-motion: reduce) {
+  .sz-tb-filter,
+  .sz-tb-chart,
+  .sz-tb-comment,
+  .sz-filter-btn,
+  .sz-filter-panel button,
+  .sz-chart-handle,
+  .sz-chart-types button,
+  .sz-chart-type,
+  .sz-panel-close,
+  .sz-comment-actions button { transition: none; }
+}
+
+/* ── §24 Growing a sheet (spec §25) ───────────────────────────────────────
+   The 행/열 추가 bar: `맨 아래에 행 [1000] 개 추가` and `오른쪽에 열 [26] 개 추가`.
+
+   Layout. It sits between the sheet bar and the status bar in the <body> flex
+   column, so it is one more `flex: 0 0 auto` row of intrinsic height. The grid
+   above keeps `flex: 1 1 auto` + `min-height: 0` from §3 — that pair is what
+   makes the grid yield exactly this row's height instead of pushing the page
+   into a scroll, and nothing here touches it. The bar cannot widen the page
+   either: it clips its own overflow and scrolls sideways, the way .sz-toolbar
+   and .sz-sheet-tabs already do.
+
+   A sheet nobody grows must look exactly as it does today. `.sz-grow:empty` is
+   display:none, so the root <div> occupies not one pixel until its module fills
+   it — the bar is added by markup, but not paid for by markup.
+
+   Band. The same --sz-tab-band as the sheet bar and no top border, so the two
+   read as ONE bottom strip rather than as three hairlines stacked above the
+   status bar (which brings its own border-top and its own surface).
+
+   Colour. Every value below is a §1 token; there is no colour literal and no
+   new token, so dark mode needs nothing beyond what §1 already redefines.
+
+   Focus. The bar clips vertically, so the global :focus-visible ring at +2px
+   would be cut off at the band's edge. Every control here pulls its ring inside
+   with a negative outline-offset, exactly as §16's .sz-sheet-add does, which
+   keeps the convention visible rather than dropping it. */
+
+#sz-grow-root,
+/* At the limit GrowBar replaces the input and button with this message, so it needs a
+   rule of its own — the [disabled] styling below never applies to it. */
+.sz-grow-max {
+  color: var(--sz-text-faint);
+  font-size: var(--sz-fs-xs);
+  white-space: nowrap;
+}
+
+.sz-grow { flex: 0 0 auto; }
+
+.sz-grow {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: var(--sz-grow-h);   /* the same token the bottom-anchored overlays clear */
+  padding: 4px 10px 4px 8px;
+  background: var(--sz-tab-band);
+  color: var(--sz-text-muted);
+  font-size: var(--sz-fs-sm);
+  white-space: nowrap;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;          /* the two groups are short; a scrollbar here
+                                     would cost more height than it earns */
+  user-select: none;
+}
+.sz-grow::-webkit-scrollbar { height: 0; }
+
+/* Before the module builds it the root is a bare empty <div>: give it nothing
+   at all, so today's layout stays exactly today's layout. Placed after the
+   block above so it wins on source order, not on specificity. */
+.sz-grow:empty { display: none; }
+
+/* The two control groups (행 / 열). Each is a bit of Korean label text, the
+   number input and the button. Written so it is correct whether the module
+   emits the group as a wrapper element or puts the class on the button itself
+   — the button rules below cover that second shape. */
+.sz-grow-rows,
+.sz-grow-cols {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+  min-width: 0;
+  white-space: nowrap;
+}
+.sz-grow-rows label,
+.sz-grow-cols label { cursor: default; }
+
+/* The count. Small, sized for four digits (the row step is 1000 and the cap is
+   5000), and tabular so the digits do not jitter as the value is typed or
+   clamped. The native spinner is removed the way §21's 글꼴 크기 field removes
+   it: the value is typed or defaulted, never nudged. */
+.sz-grow-input,
+input.sz-grow-input,
+.sz-grow-input input {
+  width: 62px;
+  height: 24px;
+  padding: 0 6px;
+  border: 1px solid var(--sz-line-strong);
+  border-radius: var(--sz-radius-sm);
+  background: var(--sz-surface);
+  color: var(--sz-text);
+  font-family: var(--sz-font);
+  font-size: var(--sz-fs-sm);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  -moz-appearance: textfield;
+  appearance: textfield;
+  transition: border-color .12s ease, background-color .12s ease;
+}
+.sz-grow-input::-webkit-outer-spin-button,
+.sz-grow-input::-webkit-inner-spin-button,
+.sz-grow-input input::-webkit-outer-spin-button,
+.sz-grow-input input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.sz-grow-input::placeholder { color: var(--sz-text-faint); }
+.sz-grow-input:hover:not([disabled]) { border-color: var(--sz-text-faint); }
+.sz-grow-input:focus { border-color: var(--sz-accent); }
+.sz-grow-input:focus-visible { outline-offset: -1px; }
+
+/* The button. The same shape as §6's .sz-btn, one size down so the whole bar
+   stays thinner than the sheet bar above it. */
+.sz-grow-btn,
+button.sz-grow-rows,
+button.sz-grow-cols {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+  height: 24px;
+  padding: 0 11px;
+  border: 1px solid var(--sz-line-strong);
+  border-radius: var(--sz-radius-sm);
+  background: var(--sz-surface);
+  color: var(--sz-text);
+  font-family: var(--sz-font);
+  font-size: var(--sz-fs-sm);
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+  transition: background-color .12s ease, border-color .12s ease, color .12s ease;
+}
+.sz-grow-btn:hover,
+button.sz-grow-rows:hover,
+button.sz-grow-cols:hover {
+  background: var(--sz-surface-2);
+  border-color: var(--sz-text-faint);
+}
+.sz-grow-btn:active,
+button.sz-grow-rows:active,
+button.sz-grow-cols:active { background: var(--sz-surface-3); }
+.sz-grow-btn:focus-visible,
+button.sz-grow-rows:focus-visible,
+button.sz-grow-cols:focus-visible { outline-offset: -1px; }
+.sz-grow-btn svg { display: block; width: 14px; height: 14px; fill: currentColor; }
+
+/* At the maximum the control is dead and says 최대 크기입니다, so it has to READ
+   as dead: the flat surface of the band it sits on, faint text, no hover. A
+   real [disabled] takes §6's opacity + pointer-events pair; [aria-disabled]
+   keeps its pointer events, because a host that marks a control that way is
+   still listening on it. */
+.sz-grow-btn[disabled],
+button.sz-grow-rows[disabled],
+button.sz-grow-cols[disabled],
+.sz-grow-input[disabled] { opacity: .45; pointer-events: none; }
+
+.sz-grow-btn[aria-disabled='true'],
+button.sz-grow-rows[aria-disabled='true'],
+button.sz-grow-cols[aria-disabled='true'] { opacity: .45; cursor: default; }
+
+.sz-grow-btn[disabled],
+.sz-grow-btn[aria-disabled='true'],
+button.sz-grow-rows[disabled],
+button.sz-grow-cols[disabled],
+.sz-grow-input[disabled] {
+  border-color: var(--sz-line);
+  background: var(--sz-surface-3);
+  color: var(--sz-text-faint);
+}
+.sz-grow[aria-disabled='true'],
+.sz-grow-rows[aria-disabled='true'],
+.sz-grow-cols[aria-disabled='true'] { color: var(--sz-text-faint); }
+
+/* --- narrow windows ------------------------------------------------------- */
+/* Give width back from the gaps and the number field rather than from the
+   Korean labels, which are the part that says what the buttons do. */
+@media (max-width: 720px) {
+  .sz-grow { gap: 10px; padding-left: 6px; padding-right: 6px; }
+  .sz-grow-rows,
+  .sz-grow-cols { gap: 4px; }
+  .sz-grow-input,
+  input.sz-grow-input,
+  .sz-grow-input input { width: 52px; }
+  .sz-grow-btn,
+  button.sz-grow-rows,
+  button.sz-grow-cols { padding: 0 8px; }
+}
+
+/* --- print ---------------------------------------------------------------- */
+/* Chrome, like the sheet bar and the status bar §22 already hides. Scoped to a
+   <body> child so it can never reach into 인쇄's own print document. */
+@media print {
+  body > #sz-grow-root { display: none; }
+}
+
+/* --- motion preferences --------------------------------------------------- */
+/* §15 flattens every transition already; stated locally too, the way §19–§23
+   do, so this section reads correctly on its own. */
+@media (prefers-reduced-motion: reduce) {
+  .sz-grow-btn,
+  button.sz-grow-rows,
+  button.sz-grow-cols,
+  .sz-grow-input { transition: none; }
+}
+
+/* ── §25 Save indicator (spec §27.5) ──────────────────────────────────────
+   `#sz-save` sits immediately before `#sz-status` in the header, so the two
+   read as one status area: what the socket is doing, and what the outbox is
+   still holding. main.js owns the TEXT and the `data-state`; everything below
+   only decides how each state looks. This section never invents a claim — it
+   cannot make the chip say 저장됨, it can only style whatever it is given.
+
+   The three states, and why they look the way they do:
+
+     saved   — muted, and deliberately not a chip at all: no background, faint
+               dot, quiet text. It is the state a person glances at all day,
+               so it must not compete with anything.
+     saving  — the accent. Work is in flight; nothing is wrong.
+     pending — warm, NOT red. Frames are queued because the socket is down, and
+               that is a wait rather than a failure; --sz-danger would say the
+               wrong thing about work that is safely in the outbox. It is the
+               one state that raises its voice: a tinted chip, heavier text and
+               a haloed dot.
+
+   Colour is never the only difference. The dot is a filled disc for saved, a
+   ring for saving and a haloed disc for pending, so the three stay apart for a
+   colour-blind reader and with the pulse frozen by prefers-reduced-motion.
+   Any state this section does not know (an empty attribute, or the
+   저장됨 (이 브라우저에는 임시 보관 불가) variant) falls back to the muted look:
+   an unknown state must under-state, never shout and never claim.
+
+   No layout shift. The text runs 저장됨 → 저장 중… → 저장 대기 중 (N), three
+   different widths on a bar that also holds the document name and two buttons;
+   a header that re-lays out on every keystroke is its own annoyance. `min-width`
+   reserves the widest of the three up front, the dot is the leftmost thing in
+   the box so it never moves, the text grows rightward into space that was
+   already paid for, and the count is tabular so 9 → 10 does not jitter. The
+   reservation is invisible while saved, because that state has no background.
+   The one string that can exceed it is the outbox-unavailable variant, which is
+   set once at boot and never toggles; it ellipsises rather than pushing the
+   header's buttons off the edge.
+
+   The chip is empty until main.js writes into it, and `:empty` keeps it out of
+   the layout for that moment rather than showing a bare floating dot.
+
+   Colour: every value is a §1 token. Two are new — --sz-warn-soft and
+   --sz-warn-text — and both are defined in the light block AND the dark one.
+
+   State selectors mirror §4's .sz-status: `data-state` is the contract, and the
+   bare / is- / sz-save- class spellings are accepted alongside it so the chip
+   cannot end up unstyled over a naming difference. */
+
+.sz-save {
+  display: inline-block;          /* blockified as a flex item; keeps ellipsis working */
+  flex: 0 1 auto;
+  min-width: 144px;               /* fits bold 저장 대기 중 (2000) — the widest of the three */
+  max-width: 260px;
+  height: 26px;
+  padding: 0 10px 0 9px;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--sz-text-muted);
+  font-size: var(--sz-fs-sm);
+  font-variant-numeric: tabular-nums;
+  line-height: 26px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  user-select: none;
+  transition: background-color .12s ease, color .12s ease;
+}
+.sz-save:empty { display: none; }
+.sz-save:focus-visible { outline-offset: 1px; }
+
+.sz-save::before {
+  content: '';
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-right: 6px;
+  border-radius: 50%;
+  vertical-align: middle;
+  background: var(--sz-text-faint);
+}
+
+/* saved — spelled out as well as inherited, so a host that sets the attribute
+   and a host that clears it land on the identical muted look. */
+.sz-save[data-state='saved'],
+.sz-save.saved,
+.sz-save.is-saved,
+.sz-save.sz-save-saved {
+  background: transparent;
+  color: var(--sz-text-muted);
+  font-weight: 400;
+}
+.sz-save[data-state='saved']::before,
+.sz-save.saved::before,
+.sz-save.is-saved::before,
+.sz-save.sz-save-saved::before {
+  background: var(--sz-text-faint);
+  box-shadow: none;
+}
+
+/* saving — in flight. The ring plus the same pulse §4 gives a connecting
+   socket, so "something is happening" reads the same way in both chips. */
+.sz-save[data-state='saving'],
+.sz-save.saving,
+.sz-save.is-saving,
+.sz-save.sz-save-saving {
+  background: var(--sz-accent-soft);
+  color: var(--sz-text-muted);
+  font-weight: 400;
+}
+.sz-save[data-state='saving']::before,
+.sz-save.saving::before,
+.sz-save.is-saving::before,
+.sz-save.sz-save-saving::before {
+  background: transparent;
+  box-shadow: inset 0 0 0 2px var(--sz-accent);
+  animation: sz-pulse 1.1s ease-in-out infinite;
+}
+
+/* pending — queued while the socket is down. The halo is the same translucent
+   token as the chip, so it stacks over it and reads as a ring without needing
+   a third colour. */
+.sz-save[data-state='pending'],
+.sz-save.pending,
+.sz-save.is-pending,
+.sz-save.sz-save-pending {
+  background: var(--sz-warn-soft);
+  color: var(--sz-warn-text);
+  font-weight: 600;
+}
+.sz-save[data-state='pending']::before,
+.sz-save.pending::before,
+.sz-save.is-pending::before,
+.sz-save.sz-save-pending::before {
+  background: var(--sz-warn);
+  box-shadow: 0 0 0 3px var(--sz-warn-soft);
+}
+
+/* --- narrow windows ------------------------------------------------------- */
+/* Under 720px the header has already given up the logo text and most of the
+   document name (§14), so the reservation gives ground too: 124px still covers
+   저장됨, 저장 중… and a three-digit 저장 대기 중 (N). Past that the chip grows —
+   and growth is absorbed by the auto margin on .sz-peers, so even then the
+   connection chip and the buttons to its right do not move. */
+@media (max-width: 720px) {
+  .sz-save { min-width: 124px; max-width: 180px; }
+}
+
+/* --- motion preferences --------------------------------------------------- */
+/* §15 already caps every animation at .001ms !important, which freezes the
+   pulse on its final keyframe; this states it properly for this section, the
+   way §19–§24 do. It has to name the saving state itself: the rule that starts
+   the pulse is an attribute selector, so a plainer `.sz-save::before` here
+   would lose on specificity and quietly do nothing. With the pulse gone,
+   saving is still a ring where saved is a disc and pending is a haloed disc,
+   so the three states remain distinguishable without any motion at all. */
+@media (prefers-reduced-motion: reduce) {
+  .sz-save { transition: none; }
+  .sz-save[data-state='saving']::before,
+  .sz-save.saving::before,
+  .sz-save.is-saving::before,
+  .sz-save.sz-save-saving::before { animation: none; }
+}
+
+/* ── §26 Login page + 로그아웃 button (spec §28) ───────────────────────────
+   The gate is ONE shared password for the whole site, so this page is one
+   field and one button: there is no account to name, nothing to sign up for,
+   and nothing here may imply otherwise. Like §19 it is a separate page that
+   reuses §1's tokens, so it follows the light/dark palette with no colour
+   literal of its own. The single token it needed, --sz-danger-soft, is defined
+   in the light block AND the dark one.
+
+   Three decisions shape everything below.
+
+   1. The markup is not this file's to write. `.sz-login` may land on <body>
+      the way `.sz-home` does, or on a wrapper inside it; `.sz-login-field` may
+      be the <input> itself or a label wrapped around one. Every rule is
+      written so both spellings render the same page — which is why the field
+      is styled as a box AND a nested input is flattened into that box. The
+      plain-element rules (`h1`, `p`, `label`, `form`, a bare `<svg>`) sit
+      inside `:where()`, which zeroes their specificity: they are defaults that
+      any class the page brings can overrule, never a layout it has to fight.
+      The component rules keep a `.sz-login-card` compound spelling alongside
+      the bare class, so a <p class="sz-login-error"> is painted as the error
+      surface and never as body copy.
+
+   2. Nothing moves when the error appears. `.sz-login-error` holds its height
+      while it is empty, hidden or full, so a wrong password never shoves the
+      field the person is about to retype into. That reservation is the reason
+      for the one `!important` in this section: §14 hides `[hidden]` with
+      `display:none !important`, which would collapse the reserved box, so the
+      error keeps its box and gives up `visibility` instead — invisible to the
+      eye and to assistive tech, but still occupying its space.
+
+   3. The card is centred with `margin:auto`, not `justify-content:center`.
+      Auto margins collapse to 0 once the card is taller than the window, so a
+      phone in landscape scrolls down to the button; centring would have cut
+      the top of the card off above the scroll origin instead.
+
+   The page must never show state it does not have: there is no "wrong user",
+   no attempt counter and no hint about the password, so there is exactly one
+   error surface and it looks the same whatever it says. */
+
+/* --- the page ------------------------------------------------------------ */
+.sz-login {
+  display: flex;
+  flex: 1 1 auto;                 /* when .sz-login is a wrapper inside <body> */
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  min-height: 100vh;              /* when .sz-login IS the <body> (§2 sets 100%) */
+  min-height: 100dvh;             /* phone browsers: the bar-aware height */
+  padding: 24px 18px calc(24px + env(safe-area-inset-bottom, 0px));
+  overflow-x: hidden;
+  overflow-y: auto;               /* §2's <body> never scrolls; this page may */
+  background: var(--sz-bg);
+  color: var(--sz-text);
+  font-family: var(--sz-font);
+  font-size: var(--sz-fs);
+}
+
+/* The no-script banner is a flex item here, so it has to be told to span. */
+.sz-login .sz-noscript { width: 100%; flex: 0 0 auto; }
+
+/* --- the card ------------------------------------------------------------ */
+/* The vertical rhythm is carried by each component's own top margin rather
+   than by a `gap` on the card. A gap would ADD to whatever margins the page
+   itself gives its paragraphs, and the login page is entitled to bring its
+   own: everything in this section is a default the page can overrule, never a
+   layout it has to fight. That is also why the element rules below sit inside
+   `:where()` — it zeroes their specificity, so any class the page puts on one
+   of those elements wins on every property it declares, and this file fills in
+   only what nothing else has said. */
+.sz-login-card {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  width: 100%;
+  max-width: 372px;
+  margin: auto;                   /* centres on both axes and never clips */
+  padding: 30px 26px 20px;
+  border: 1px solid var(--sz-line);
+  border-radius: calc(var(--sz-radius) + 4px);
+  background: var(--sz-surface);
+  box-shadow: var(--sz-shadow-1);
+}
+
+/* A <form> inside the card is a plain column; its children space themselves. */
+.sz-login-card :where(form) {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+}
+
+/* The app mark, straight from §4 — same classes, so it follows the theme with
+   no extra rules. A bare <svg> child is accepted too, for markup that drops
+   the .sz-logo wrapper. It is the only ornament on the page, so it is a size
+   up from the header's. */
+.sz-login-card .sz-logo {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 0 0 14px;
+  color: var(--sz-text);
+  text-decoration: none;
+}
+.sz-login-card .sz-logo-mark,
+.sz-login-card > :where(svg) {
+  display: block;
+  width: 40px;
+  height: 40px;
+  border-radius: 9px;
+}
+.sz-login-card > :where(svg) { margin: 0 0 14px; }
+.sz-login-card .sz-logo-text { font-size: 18px; }
+
+.sz-login-card :where(h1) {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -.01em;
+  color: var(--sz-text);
+}
+
+.sz-login-card :where(p) {
+  margin: 10px 0 0;
+  color: var(--sz-text-muted);
+  font-size: var(--sz-fs-sm);
+  line-height: 1.55;
+  word-break: keep-all;           /* Korean wraps between words, not inside one */
+}
+
+.sz-login-card :where(label) {
+  display: block;
+  margin: 16px 0 6px;
+  color: var(--sz-text-muted);
+  font-size: var(--sz-fs-sm);
+  font-weight: 600;
+  word-break: keep-all;
+}
+
+.sz-login-card :where(a) { color: var(--sz-accent); border-radius: 3px; }
+
+/* --- the field ------------------------------------------------------------ */
+.sz-login-field,
+.sz-login-card .sz-login-field {
+  display: block;
+  width: 100%;
+  height: 46px;
+  margin: 12px 0 0;               /* the card has no gap; each part spaces itself */
+  padding: 0 14px;
+  border: 1px solid var(--sz-line-strong);
+  border-radius: var(--sz-radius-sm);
+  background: var(--sz-surface);
+  color: var(--sz-text);
+  font-family: var(--sz-font);
+  /* 16px deliberately: iOS Safari zooms the page when a focused field is
+     smaller than that, and a login box that zooms on tap is a login box the
+     person then has to pan around. */
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 44px;              /* the height minus the two 1px borders */
+  text-align: left;               /* stated, so a centring card cannot inherit into it */
+  letter-spacing: .01em;
+  transition: border-color .12s ease, background-color .12s ease;
+}
+
+/* Wrapper spelling: the real input is flattened into the box above, so one
+   control is drawn either way. Written with the .sz-login-card compound as
+   well, so it outranks the box rule for a nested input. */
+.sz-login-card .sz-login-field input,
+.sz-login-field input {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-align: inherit;
+  outline: none;                  /* the box below carries the focus ring */
+}
+
+.sz-login-field::placeholder,
+.sz-login-field input::placeholder {
+  color: var(--sz-text-faint);
+  font-weight: 400;
+  letter-spacing: normal;
+}
+
+/* One focus treatment for both spellings: :focus-within matches the wrapper
+   when its input has focus, and matches the input itself when the class is on
+   the input. The ring is §2's, restated only to pull it in tight against the
+   box it belongs to. */
+.sz-login-field:focus-within,
+.sz-login-card .sz-login-field:focus-within {
+  border-color: var(--sz-accent);
+  background: var(--sz-surface);
+  outline: var(--sz-focus-w) solid var(--sz-accent);
+  outline-offset: 1px;
+}
+
+/* --- the button ----------------------------------------------------------- */
+.sz-login-btn,
+.sz-login-card .sz-login-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  width: 100%;
+  height: 46px;
+  margin: 16px 0 0;
+  padding: 0 16px;
+  border: 1px solid transparent;
+  border-radius: var(--sz-radius-sm);
+  background: var(--sz-accent);
+  color: var(--sz-on-accent);
+  font-family: var(--sz-font);
+  font-size: 15px;
+  font-weight: 600;
+  white-space: nowrap;
+  transition: background-color .12s ease, opacity .12s ease;
+}
+.sz-login-btn:hover { background: var(--sz-accent-hover); }
+.sz-login-btn:active { background: var(--sz-accent-hover); }
+.sz-login-btn:focus-visible { outline: var(--sz-focus-w) solid var(--sz-accent); outline-offset: 2px; }
+/* Submitting: the page stays put and the button stops taking presses. */
+.sz-login-btn[disabled],
+.sz-login-btn[aria-busy='true'],
+.sz-login-btn[aria-disabled='true'] { opacity: .55; pointer-events: none; }
+
+/* --- the error area -------------------------------------------------------- */
+/* Reserved height: two lines of --sz-fs-sm plus its padding. One line covers
+   the usual 비밀번호가 올바르지 않습니다; the second is there for the rate-limit
+   sentence, the longest thing this area can be asked to say, so even that
+   arrives without moving the field or the button by a pixel. */
+.sz-login-error,
+.sz-login-card .sz-login-error,
+.sz-login-card p.sz-login-error,
+.sz-login-card div.sz-login-error {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 50px;
+  margin: 14px 0 0;
+  padding: 7px 12px;
+  border-radius: var(--sz-radius-sm);
+  background: var(--sz-danger-soft);
+  color: var(--sz-danger);
+  font-size: var(--sz-fs-sm);
+  font-weight: 500;
+  line-height: 1.45;
+  text-align: center;
+  word-break: keep-all;
+  overflow-wrap: anywhere;        /* a long unbroken token still stays inside */
+}
+
+/* Empty or hidden, the box keeps its place and gives up its paint. §14 hides
+   [hidden] with display:none !important, which would collapse the reservation
+   this whole area exists for, so it is answered here — and only here. */
+.sz-login-error:empty,
+.sz-login-error[hidden] { visibility: hidden; }
+.sz-login-error[hidden] { display: flex !important; }
+
+/* --- a phone-sized viewport ------------------------------------------------ */
+@media (max-width: 560px) {
+  .sz-login { padding: 16px 12px calc(16px + env(safe-area-inset-bottom, 0px)); }
+  .sz-login-card {
+    max-width: none;
+    padding: 24px 18px 16px;
+    border-radius: var(--sz-radius);
+  }
+  .sz-login-card .sz-logo-mark,
+  .sz-login-card > svg { width: 36px; height: 36px; }
+}
+
+/* A short window — a phone held sideways, or a small desktop pane. The rhythm
+   tightens so the button stays reachable; the field and the button keep their
+   46px, because a touch target is not the place to save space. */
+@media (max-height: 540px) {
+  .sz-login { padding-top: 14px; padding-bottom: 14px; }
+  .sz-login-card { gap: 10px; padding-top: 20px; }
+  .sz-login-card .sz-logo-mark,
+  .sz-login-card > svg { width: 32px; height: 32px; }
+}
+
+/* --- the 로그아웃 button in the header --------------------------------------- */
+/* It is an ordinary §6 .sz-btn and belongs in .sz-actions beside 공유 and
+   CSV 내보내기. The rules below restate that base so the class also works on
+   its own, and quiet the label one shade so signing out never out-shouts the
+   two buttons a person actually came to press. It is shown only when the gate
+   is on; the header hides it with the `hidden` attribute otherwise, which §14
+   already makes stick — nothing here fights that.
+   Both spellings are matched, class and id, and every state is listed for
+   both: an id-spelled button carrying only the id's base rule would be pinned
+   by that rule's specificity and lose its hover. */
+.sz-logout,
+#sz-logout {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+  height: 32px;
+  padding: 0 13px;
+  border: 1px solid var(--sz-line-strong);
+  border-radius: var(--sz-radius-sm);
+  background: var(--sz-surface);
+  color: var(--sz-text-muted);
+  font-family: var(--sz-font);
+  font-size: var(--sz-fs);
+  font-weight: 500;
+  white-space: nowrap;
+  transition: background-color .12s ease, border-color .12s ease, color .12s ease;
+}
+.sz-logout:hover,
+#sz-logout:hover { background: var(--sz-surface-2); color: var(--sz-text); }
+.sz-logout:active,
+#sz-logout:active { background: var(--sz-surface-3); }
+.sz-logout:focus-visible,
+#sz-logout:focus-visible { outline: var(--sz-focus-w) solid var(--sz-accent); outline-offset: 2px; }
+.sz-logout[disabled],
+#sz-logout[disabled],
+.sz-logout[aria-busy='true'],
+#sz-logout[aria-busy='true'] { opacity: .45; pointer-events: none; }
+
+/* --- narrow windows -------------------------------------------------------- */
+/* Under 720px the header has already dropped the logo text and most of the
+   document name (§14). 로그아웃 gives up padding rather than the word: it is
+   four syllables, and an icon nobody has seen before would be worse. */
+@media (max-width: 720px) {
+  .sz-logout,
+  #sz-logout { padding: 0 10px; }
+  /* §14 drops the wordmark from the editor's header at this width because that
+     bar is crowded. The login card is not that bar — it is one column with
+     room to spare, and the mark on its own would leave the page without its
+     name at the exact moment a visitor is deciding whether to type a password
+     into it. */
+  .sz-login-card .sz-logo-text { display: block; }
+}
+
+/* --- motion preferences ----------------------------------------------------- */
+/* §15 already flattens every transition; stated locally too, the way §19–§25
+   do. Nothing here moves in the first place — the field, the button and the
+   sign-out control only cross-fade their own colours — so with motion off the
+   page is identical apart from those being instant. */
+@media (prefers-reduced-motion: reduce) {
+  .sz-login-field,
+  .sz-login-btn,
+  .sz-logout,
+  #sz-logout { transition: none; }
+}

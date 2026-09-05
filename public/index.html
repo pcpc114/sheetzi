@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="light dark">
+  <meta name="description" content="시트지 — 실시간 협업 웹 스프레드시트">
+  <meta name="theme-color" content="#1a73e8">
+  <title>시트지 — 협업 스프레드시트</title>
+
+  <!-- Inline SVG favicon (data URI): no network request. -->
+  <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2032%2032'%3E%3Crect%20width='32'%20height='32'%20rx='7'%20fill='%231a73e8'/%3E%3Cpath%20d='M7%208h18v4H7z'%20fill='%23fff'/%3E%3Cpath%20d='M7%2013.5h8v4H7zM16%2013.5h9v4h-9zM7%2019h8v5H7zM16%2019h9v5h-9z'%20fill='%23fff'%20opacity='.72'/%3E%3C/svg%3E">
+
+  <link rel="stylesheet" href="./css/style.css">
+</head>
+<body>
+
+  <noscript>
+    <div class="sz-noscript">
+      <strong>자바스크립트가 꺼져 있습니다.</strong>
+      시트지는 실시간 협업 편집을 위해 자바스크립트가 필요합니다.
+      브라우저 설정에서 자바스크립트를 켠 뒤 페이지를 새로고침해 주세요.
+    </div>
+  </noscript>
+
+  <!-- ── Header ─────────────────────────────────────────────────────────── -->
+  <header class="sz-header">
+    <a class="sz-logo" href="/" title="내 문서 목록으로 이동" aria-label="시트지 홈 — 내 문서 목록">
+      <svg class="sz-logo-mark" viewBox="0 0 32 32" width="26" height="26" aria-hidden="true" focusable="false">
+        <rect class="sz-logo-bg" width="32" height="32" rx="7"></rect>
+        <path class="sz-logo-fg" d="M7 8h18v4H7z"></path>
+        <path class="sz-logo-fg sz-logo-fg-2" d="M7 13.5h8v4H7zM16 13.5h9v4h-9zM7 19h8v5H7zM16 19h9v5h-9z"></path>
+      </svg>
+      <span class="sz-logo-text">시트지</span>
+    </a>
+
+    <input
+      id="sz-docname"
+      class="sz-docname"
+      type="text"
+      value="제목 없는 스프레드시트"
+      aria-label="문서 이름"
+      title="문서 이름"
+      placeholder="제목 없는 스프레드시트"
+      autocomplete="off"
+      spellcheck="false"
+      maxlength="80">
+
+    <div id="sz-peers" class="sz-peers" aria-label="접속 중인 사용자"></div>
+
+    <!-- Save indicator (SPEC §27.5). main.js writes its text and data-state
+         from the outbox + socket; it sits next to the connection chip so the
+         two read as one status area. -->
+    <span id="sz-save" class="sz-save"></span>
+    <div id="sz-status" class="sz-status" data-state="connecting" role="status" aria-live="polite">연결 중…</div>
+
+    <div class="sz-actions">
+      <!-- Document create / list (built by public/js/docsmenu.js) -->
+      <div id="sz-docs-root" class="sz-docs"></div>
+      <button type="button" class="sz-btn" id="sz-share" data-action="share" title="이 문서의 링크를 복사합니다">공유</button>
+      <button type="button" class="sz-btn sz-btn-primary" id="sz-export" data-action="export:csv" title="계산된 값을 CSV로 내려받습니다">CSV 내보내기</button>
+    </div>
+  </header>
+
+  <!-- ── Toolbar + formula bar (built by public/js/toolbar.js) ──────────── -->
+  <div id="sz-toolbar-root"></div>
+
+  <!-- ── Grid (built by public/js/grid.js) ──────────────────────────────── -->
+  <div id="sz-grid-root" class="sz-grid"></div>
+
+  <!-- ── Sheet tab strip (built by public/js/sheetbar.js) ────────────────── -->
+  <div id="sz-sheetbar-root" class="sz-sheetbar"></div>
+
+  <!-- ── Grow controls: rows / columns (spec 25.4) ──────────────────────── -->
+  <div id="sz-grow-root" class="sz-grow"></div>
+
+  <!-- ── Status bar ─────────────────────────────────────────────────────── -->
+  <footer class="sz-statusbar">
+    <span id="sz-selstats" class="sz-selstats"></span>
+    <span id="sz-hint" class="sz-hint">F2 편집 · Enter 확정 · Esc 취소 · Ctrl+Z 실행취소 · Ctrl+Shift+Z 다시실행</span>
+  </footer>
+
+  <!-- ── Toasts ─────────────────────────────────────────────────────────── -->
+  <div id="sz-toasts" class="sz-toasts" role="region" aria-live="polite" aria-label="알림"></div>
+
+  <script type="module" src="./js/main.js"></script>
+</body>
+</html>

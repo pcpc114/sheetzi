@@ -1,0 +1,72 @@
+# render.yaml — Render Blueprint (선택 사항)
+#
+# 이 파일은 없어도 됩니다. Render 대시보드에서 손으로 Web Service 를 만들어도
+# 똑같이 동작하며, docs/DEPLOY.md 의 5단계가 바로 그 방법입니다. 이 파일은 그때
+# 손으로 채워 넣어야 하는 칸(빌드 명령, 시작 명령, 상태 확인 주소, Node 버전)을
+# 미리 적어 두어 오타로 실패할 일을 줄여 줍니다.
+#
+# 쓰는 법:  Render → + New → Blueprint → 이 저장소 선택 → 값 채우고 Apply
+# 자세한 절차는 docs/DEPLOY.md 부록 B.
+#
+# 손으로 만든 서비스에는 이 파일이 아무 영향을 주지 않습니다. Render 는 Blueprint
+# 로 만든 서비스에만 이 파일을 적용합니다.
+
+services:
+  - type: web
+    name: sheetzi
+    runtime: node
+
+    # 무료 요금제. 15분 동안 접속이 없으면 잠들고, 다시 깨는 데 30~60초 걸립니다.
+    # 무료에는 영구 디스크를 붙일 수 없습니다 — 그래서 문서는 반드시 Supabase 에
+    # 저장해야 합니다(아래 SUPABASE_URL). 자세한 이유는 docs/DEPLOY.md 6단계.
+    plan: free
+
+    # 한국에서 가장 가까운 지역. Supabase 프로젝트도 가까운 지역에 두는 편이 빠릅니다.
+    region: singapore
+
+    branch: main
+
+    # 빌드 단계가 없는 프로젝트입니다. npm install 은 express 와 ws 두 개를 받아오는
+    # 것이 전부이고, npm start 는 package.json 의 정의대로 `node server.js` 입니다.
+    buildCommand: npm install
+    startCommand: npm start
+
+    # 로그인 없이 열리는 유일한 주소. {"ok":true,"build":"..."} 를 돌려줍니다.
+    # 이걸 지정해 두면 서버가 실제로 뜨기 전에 배포가 성공으로 처리되지 않습니다.
+    healthCheckPath: /healthz
+
+    envVars:
+      # package.json 의 engines 는 ">=20.12" 입니다. Render 의 기본 버전이 언젠가
+      # 바뀌어도 배포가 흔들리지 않도록 여기서 못 박습니다. 24 로 올려도 됩니다.
+      - key: NODE_VERSION
+        value: "22"
+
+      # 사이트 전체를 잠그는 공유 비밀번호의 해시.
+      # `npm run hash-password` 가 출력하는 scrypt$... 한 줄을 그대로 넣습니다.
+      # sync: false 이므로 값은 이 파일에 저장되지 않고 Apply 할 때 물어봅니다.
+      # 비워 두면 잠금이 완전히 꺼진 채로 인터넷에 공개됩니다. 반드시 채우세요.
+      - key: SZ_PASSWORD_HASH
+        sync: false
+
+      # 로그인 쿠키에 찍는 서명 키. Render 가 임의의 값을 한 번 만들어 고정해 둡니다.
+      # (직접 정하고 싶으면 이 두 줄을 `sync: false` 로 바꾸세요.)
+      - key: SZ_SESSION_SECRET
+        generateValue: true
+
+      # 이 값이 비어 있으면 서버는 이 인스턴스의 디스크(data/)에 저장합니다. 무료
+      # 요금제에서는 재배포·재시작·잠에서 깨어날 때마다 그 디스크가 지워집니다.
+      # 반드시 https://<프로젝트이름>.supabase.co 를 넣으세요.
+      - key: SUPABASE_URL
+        sync: false
+
+      # Supabase → Project Settings → API Keys → "Secret keys" 의 sb_secret_... 값.
+      # (예전 프로젝트라면 "Legacy anon, service_role API keys" 탭의 service_role 키도
+      #  그대로 되지만, Supabase 가 2026년 말에 없앨 예정입니다.)
+      # "Publishable key"(sb_publishable_...) 와 옛 anon 키는 아닙니다 — 넣으면 서버가
+      # 켜지지 않습니다. 서버 밖으로 절대 내보내지 마세요.
+      - key: SUPABASE_SERVICE_KEY
+        sync: false
+
+      # PORT 는 Render 가 자동으로 넣어 주므로 여기에 적지 않습니다.
+      # SZ_PASSWORD 는 SZ_PASSWORD_HASH 가 있으면 무시되므로 적지 않습니다.
+      # SZ_SESSION_DAYS(기본 14)와 SUPABASE_SCHEMA(기본 public)는 필요할 때만.

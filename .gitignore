@@ -1,0 +1,9 @@
+node_modules/
+data/*.json
+data/*.tmp
+data/*.bak.*
+.DS_Store
+*.log
+.env
+.env.local
+*.pem

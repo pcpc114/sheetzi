@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="light dark">
+  <meta name="description" content="시트지 접속 비밀번호 입력">
+  <meta name="theme-color" content="#1a73e8">
+  <!-- A locked site has nothing for a crawler, and an indexed login page is only ever
+       an invitation to guess at it. -->
+  <meta name="robots" content="noindex, nofollow">
+  <title>시트지 — 로그인</title>
+
+  <!-- Inline SVG favicon (data URI): this page, like every other, makes no external
+       request. -->
+  <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2032%2032'%3E%3Crect%20width='32'%20height='32'%20rx='7'%20fill='%231a73e8'/%3E%3Cpath%20d='M7%208h18v4H7z'%20fill='%23fff'/%3E%3Cpath%20d='M7%2013.5h8v4H7zM16%2013.5h9v4h-9zM7%2019h8v5H7zM16%2019h9v5h-9z'%20fill='%23fff'%20opacity='.72'/%3E%3C/svg%3E">
+
+  <!-- Absolute paths, not './css/...': this page is served at /login, and Express
+       answers /login/ as well, where a relative href would resolve to
+       /login/css/style.css and 404. Both files are on the gate's open list, and they
+       are the only two assets this page needs. Its own look lives in style.css §26,
+       so the page carries no colour of its own and follows the app's light and dark
+       palette exactly as the editor and the document list do. -->
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body class="sz-login">
+
+  <noscript>
+    <div class="sz-noscript">
+      <strong>자바스크립트가 꺼져 있습니다.</strong>
+      로그인하려면 브라우저 설정에서 자바스크립트를 켠 뒤 새로고침해 주세요.
+    </div>
+  </noscript>
+
+  <main class="sz-login-card">
+
+    <h1 class="sz-logo">
+      <svg class="sz-logo-mark" viewBox="0 0 32 32" width="40" height="40" aria-hidden="true" focusable="false">
+        <rect class="sz-logo-bg" width="32" height="32" rx="7"></rect>
+        <path class="sz-logo-fg" d="M7 8h18v4H7z"></path>
+        <path class="sz-logo-fg sz-logo-fg-2" d="M7 13.5h8v4H7zM16 13.5h9v4h-9zM7 19h8v5H7zM16 19h9v5h-9z"></path>
+      </svg>
+      <span class="sz-logo-text">시트지</span>
+    </h1>
+
+    <p>이 사이트는 비밀번호로 잠겨 있습니다. 비밀번호를 입력하면 계속할 수 있습니다.</p>
+
+    <!-- method and action are the failure path, not the normal one: login.js always
+         cancels the native submit. If the module ever fails to load, this still posts
+         the password in a request BODY to the right endpoint. Leaving them off would
+         be worse than useless — a bare submit would then GET this page with the
+         password sitting in the query string, where it lands in history and logs. -->
+    <form id="sz-login-form" method="post" action="/api/login" novalidate>
+      <label for="sz-login-password">비밀번호</label>
+      <input
+        id="sz-login-password"
+        class="sz-login-field"
+        type="password"
+        name="password"
+        autocomplete="current-password"
+        autocapitalize="off"
+        autocorrect="off"
+        spellcheck="false"
+        maxlength="256"
+        aria-describedby="sz-login-error"
+        autofocus>
+      <button type="submit" id="sz-login-submit" class="sz-login-btn">로그인</button>
+    </form>
+
+    <!-- One error surface for every outcome, so nothing can be read from which of
+         them appeared. It keeps its box while empty (§26), so a message never shoves
+         the field the person is about to retype into. -->
+    <p id="sz-login-error" class="sz-login-error" role="alert" aria-live="assertive"></p>
+
+    <p>이 사이트는 모든 사람이 같은 비밀번호 하나를 함께 씁니다. 개인 계정은 없으며, 비밀번호를 아는 사람은 모든 문서를 읽고 쓸 수 있습니다.</p>
+
+  </main>
+
+  <script type="module" src="/js/login.js"></script>
+</body>
+</html>
